@@ -2,10 +2,14 @@ interface Cliente {
   id: number
   nome: string
   cpf: string
-  rg: string
   dataNascimento: string
   telefone: string
+  email: string
   endereco: string
+  cidade: string
+  uf: string
+  contrato: string
+  dataCriacao: string
 }
 
 interface ClienteModalProps {
@@ -16,7 +20,7 @@ interface ClienteModalProps {
 function ClienteModal({ cliente, onClose }: ClienteModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
-      
+
       <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
 
         {/* Cabeçalho */}
@@ -37,63 +41,60 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
         <div className="grid grid-cols-1 gap-5 px-6 py-6 sm:grid-cols-2">
 
           <div>
-            <p className="text-xs font-medium text-gray-700">
-              Nome
-            </p>
-
-            <p className="mt-1 text-sm text-gray-800">
-              {cliente.nome}
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase">ID</p>
+            <p className="text-sm text-gray-900">{cliente.id}</p>
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-700">
-              CPF
-            </p>
-
-            <p className="mt-1 text-sm text-gray-800">
-              {cliente.cpf}
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Nome</p>
+            <p className="text-sm text-gray-900">{cliente.nome}</p>
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-700">
-              RG
-            </p>
-
-            <p className="mt-1 text-sm text-gray-800">
-              {cliente.rg}
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase">CPF</p>
+            <p className="text-sm text-gray-900">{cliente.cpf}</p>
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-700">
-              Data de Nascimento
-            </p>
-
-            <p className="mt-1 text-sm text-gray-800">
-              {cliente.dataNascimento}
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Data de Nascimento</p>
+            <p className="text-sm text-gray-900">{cliente.dataNascimento}</p>
           </div>
 
           <div>
-            <p className="text-xs font-medium text-gray-700">
-              Telefone
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Telefone</p>
+            <p className="text-sm text-gray-900">{cliente.telefone}</p>
+          </div>
 
-            <p className="mt-1 text-sm text-gray-800">
-              {cliente.telefone}
-            </p>
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">E-mail</p>
+            <p className="text-sm text-gray-900">{cliente.email}</p>
           </div>
 
           <div className="sm:col-span-2">
-            <p className="text-xs font-medium text-gray-700">
-              Endereço
-            </p>
+            <p className="text-xs font-medium text-gray-500 uppercase">Endereço</p>
+            <p className="text-sm text-gray-900">{cliente.endereco}</p>
+          </div>
 
-            <p className="mt-1 text-sm text-gray-800">
-              {cliente.endereco}
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Cidade</p>
+            <p className="text-sm text-gray-900">{cliente.cidade}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">UF</p>
+            <p className="text-sm text-gray-900">{cliente.uf}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Contrato</p>
+            <p className="text-sm text-gray-900">
+              {cliente.contrato ? cliente.contrato : "Nenhum"}
             </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase">Data de Criação</p>
+            <p className="text-sm text-gray-900">{cliente.dataCriacao}</p>
           </div>
 
         </div>
@@ -113,4 +114,4 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
   )
 }
 
-export default ClienteModal
+export default ClienteModal   

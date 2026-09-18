@@ -5,59 +5,70 @@ interface Cliente {
   id: number
   nome: string
   cpf: string
-  rg: string
   dataNascimento: string
   telefone: string
+  email: string
   endereco: string
+  cidade: string
+  uf: string
+  contrato: string
+  dataCriacao: string
 }
 
 const clientesIniciais: Cliente[] = [
   {
     id: 1,
-    nome: 'João Silva Santos',
-    cpf: '123.456.789-00',
-    rg: '12.345.678-9',
-    dataNascimento: '15/03/1978',
-    telefone: '(77) 99999-1111',
-    endereco: 'Rua A, 100 - Centro',
+    nome: 'Maria Aparecida Oliveira',
+    cpf: '482.917.365-41',
+    dataNascimento: '22/07/1965',
+    telefone: '(77) 98123-4567',
+    email: 'maria.oliveira@example.com',
+    endereco: 'Rua das Palmeiras, 123, Bairro Jardim, Vitória da Conquista',
+    cidade: 'Vitória da Conquista',
+    uf: 'BA',
+    contrato: 'PLN-2024-0087',
+    dataCriacao: '15/03/2024'
   },
   {
     id: 2,
-    nome: 'Maria Oliveira Costa',
-    cpf: '987.654.321-00',
-    rg: '98.765.432-1',
-    dataNascimento: '22/07/1985',
-    telefone: '(77) 98888-2222',
-    endereco: 'Rua B, 250 - Candeias',
+    nome: 'Carlos Eduardo Ferreira',
+    cpf: '317.504.892-63',
+    dataNascimento: '08/11/1978',
+    telefone: '(77) 99456-7890',
+    email: 'carlos.ferreira@example.com',
+    endereco: 'Av. Brasil, 456, Centro, Jequié',
+    cidade: 'Jequié',
+    uf: 'BA',
+    contrato: 'PLN-2023-0142',
+    dataCriacao: '22/09/2023'
   },
   {
     id: 3,
-    nome: 'Pedro Henrique Souza',
-    cpf: '456.789.123-00',
-    rg: '45.678.912-3',
-    dataNascimento: '10/11/1990',
-    telefone: '(77) 97777-3333',
-    endereco: 'Avenida Central, 500 - Recreio',
+    nome: 'Ana Beatriz Souza Lima',
+    cpf: '625.830.147-09',
+    dataNascimento: '14/02/1990',
+    telefone: '(77) 98765-4321',
+    email: 'ana.lima@example.com',
+    endereco: 'Rua São Francisco, 78, Bairro Heliópolis, Itabuna',
+    cidade: 'Itabuna',
+    uf: 'BA',
+    contrato: 'não possui',
+    dataCriacao: '10/06/2025'
   },
   {
     id: 4,
-    nome: 'Ana Carolina Ferreira',
-    cpf: '321.654.987-00',
-    rg: '32.165.498-7',
-    dataNascimento: '03/05/1982',
-    telefone: '(77) 96666-4444',
-    endereco: 'Rua das Flores, 80 - Brasil',
-  },
-  {
-    id: 5,
-    nome: 'Carlos Eduardo Lima',
-    cpf: '741.852.963-00',
-    rg: '74.185.296-3',
-    dataNascimento: '19/09/1975',
-    telefone: '(77) 95555-5555',
-    endereco: 'Rua São Paulo, 120 - Patagônia',
-  },
-]
+    nome: 'Roberto Alves Martins',
+    cpf: '941.263.578-22',
+    dataNascimento: '30/05/1952',
+    telefone: '(77) 99234-5678',
+    email: 'roberto.martins@example.com',
+    endereco: 'Travessa das Flores, 12, Bairro Santa Cruz, Ilhéus',
+    cidade: 'Ilhéus',
+    uf: 'BA',
+    contrato: 'PLN-2022-0034',
+    dataCriacao: '05/01/2022'
+  }
+]   
 
 type ClientesProps = {
   onVoltar?: () => void
@@ -152,10 +163,15 @@ export default function Clientes({ onVoltar }: ClientesProps) {
 
           <div className="overflow-x-auto">
 
-            <table className="w-full min-w-[800px] text-left text-sm">
+            <table className="w-full min-w-200 text-left text-sm">
 
               <thead className="bg-gray-50 text-gray-800">
                 <tr>
+
+                  <th className="px-5 py-3 font-semibold">
+                    ID
+                  </th>
+
                   <th className="px-5 py-3 font-semibold">
                     Nome
                   </th>
@@ -169,7 +185,7 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                   </th>
 
                   <th className="px-5 py-3 font-semibold">
-                    Data Nascimento
+                    Contrato
                   </th>
 
                   <th className="px-5 py-3 text-center font-semibold">
@@ -182,12 +198,13 @@ export default function Clientes({ onVoltar }: ClientesProps) {
 
                 {clientesFiltrados.map((cliente) => (
 
-                  <tr
-                    key={cliente.id}
-                    className="transition hover:bg-blue-50"
-                  >
+                  <tr>
+                  
+                  <td className="px-5 py-4 font-medium text-gray-800">
+                      {cliente.id}
+                    </td>
 
-                    <td className="px-5 py-4 font-medium text-gray-800">
+                    <td className="px-5 py-4 text-gray-600">
                       {cliente.nome}
                     </td>
 
@@ -200,7 +217,7 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                     </td>
 
                     <td className="px-5 py-4 text-gray-600">
-                      {cliente.dataNascimento}
+                      {cliente.contrato}
                     </td>
 
                     <td className="px-5 py-4">
