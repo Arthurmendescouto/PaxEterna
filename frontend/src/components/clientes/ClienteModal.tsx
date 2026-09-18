@@ -70,11 +70,6 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
             <p className="text-sm text-gray-900">{cliente.email}</p>
           </div>
 
-          <div className="sm:col-span-2">
-            <p className="text-xs font-medium text-gray-500 uppercase">Endereço</p>
-            <p className="text-sm text-gray-900">{cliente.endereco}</p>
-          </div>
-
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Cidade</p>
             <p className="text-sm text-gray-900">{cliente.cidade}</p>
@@ -95,6 +90,11 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Data de Criação</p>
             <p className="text-sm text-gray-900">{cliente.dataCriacao}</p>
+          </div>
+
+          <div className="sm:col-span-2">
+            <p className="text-xs font-medium text-gray-500 uppercase">Endereço</p>
+            <p className="text-sm text-gray-900">{cliente.endereco}</p>
           </div>
 
         </div>

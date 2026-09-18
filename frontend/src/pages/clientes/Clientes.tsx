@@ -26,7 +26,7 @@ const clientesIniciais: Cliente[] = [
     endereco: 'Rua das Palmeiras, 123, Bairro Jardim, Vitória da Conquista',
     cidade: 'Vitória da Conquista',
     uf: 'BA',
-    contrato: 'PLN-2024-0087',
+    contrato: 'Ativo',
     dataCriacao: '15/03/2024'
   },
   {
@@ -39,7 +39,7 @@ const clientesIniciais: Cliente[] = [
     endereco: 'Av. Brasil, 456, Centro, Jequié',
     cidade: 'Jequié',
     uf: 'BA',
-    contrato: 'PLN-2023-0142',
+    contrato: 'Ativo',
     dataCriacao: '22/09/2023'
   },
   {
@@ -52,7 +52,7 @@ const clientesIniciais: Cliente[] = [
     endereco: 'Rua São Francisco, 78, Bairro Heliópolis, Itabuna',
     cidade: 'Itabuna',
     uf: 'BA',
-    contrato: 'não possui',
+    contrato: 'Inativo',
     dataCriacao: '10/06/2025'
   },
   {
@@ -65,7 +65,7 @@ const clientesIniciais: Cliente[] = [
     endereco: 'Travessa das Flores, 12, Bairro Santa Cruz, Ilhéus',
     cidade: 'Ilhéus',
     uf: 'BA',
-    contrato: 'PLN-2022-0034',
+    contrato: 'Ativo',
     dataCriacao: '05/01/2022'
   }
 ]   
