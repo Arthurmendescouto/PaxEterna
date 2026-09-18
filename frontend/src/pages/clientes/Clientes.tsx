@@ -59,7 +59,11 @@ const clientesIniciais: Cliente[] = [
   },
 ]
 
-export default function Clientes() {
+type ClientesProps = {
+  onVoltar?: () => void
+}
+
+export default function Clientes({ onVoltar }: ClientesProps) {
   const [clientes] = useState<Cliente[]>(clientesIniciais)
 
   const [busca, setBusca] = useState('')
@@ -98,7 +102,9 @@ export default function Clientes() {
           </div>
 
           <button
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium transition hover:bg-blue-500"
+            type="button"
+            onClick={onVoltar}
+            className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium transition hover:bg-blue-400 hover:shadow-md"
           >
             ← Voltar ao dashboard
           </button>
