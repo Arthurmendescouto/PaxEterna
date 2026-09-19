@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import ClienteModal from '../../components/clientes/ClienteModal'
+import ConsultarIcon from '@mui/icons-material/Visibility';
+import DeletarIcon from '@mui/icons-material/Delete';
+import EditarIcon from '@mui/icons-material/Edit';
 
 interface Cliente {
   id: number
@@ -228,9 +231,27 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                           onClick={() =>
                             setClienteSelecionado(cliente)
                           }
-                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-blue-700 transition hover:bg-blue-100"
+                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-blue-500 transition hover:bg-blue-100"
                         >
-                          Consultar
+                          <ConsultarIcon/>
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            setClienteSelecionado(cliente)
+                          }
+                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-green-500 transition hover:bg-blue-100"
+                        >
+                          <EditarIcon/>
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            setClienteSelecionado(cliente)
+                          }
+                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-red-500 transition hover:bg-blue-100"
+                        >
+                          <DeletarIcon/>
                         </button>
 
                       </div>
