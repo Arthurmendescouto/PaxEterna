@@ -11,6 +11,11 @@ const modulos: { id: Exclude<Tela, 'dashboard'>; titulo: string; descricao: stri
     titulo: 'Clientes',
     descricao: 'Cadastro, edição e consulta',
   },
+  {
+    id: 'produtos',
+    titulo: 'Produtos',
+    descricao: 'Cadastro, edição e consulta',
+  },
 ]
 
 export default function Dashboard({ onNavegar }: DashboardProps) {
