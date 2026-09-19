@@ -231,7 +231,7 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                           onClick={() =>
                             setClienteSelecionado(cliente)
                           }
-                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-blue-500 transition hover:bg-blue-100"
+                          className="rounded-md  px-3 py-1.5 text-xs font-medium cursor-pointer text-blue-500 transition hover:bg-blue-100"
                         >
                           <ConsultarIcon/>
                         </button>
@@ -240,7 +240,7 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                           onClick={() =>
                             setClienteSelecionado(cliente)
                           }
-                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-green-500 transition hover:bg-blue-100"
+                          className="rounded-md px-3 py-1.5 text-xs font-medium cursor-pointer text-green-500 transition hover:bg-blue-100"
                         >
                           <EditarIcon/>
                         </button>
@@ -249,7 +249,7 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                           onClick={() =>
                             setClienteSelecionado(cliente)
                           }
-                          className="rounded-md bg-blue-50 px-3 py-1.5 text-xs font-medium cursor-pointer text-red-500 transition hover:bg-blue-100"
+                          className="rounded-md  px-3 py-1.5 text-xs font-medium cursor-pointer text-red-500 transition hover:bg-blue-100"
                         >
                           <DeletarIcon/>
                         </button>
