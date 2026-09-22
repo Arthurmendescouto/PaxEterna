@@ -1,4 +1,5 @@
 import type { Tela } from '../../types/navegacao.ts'
+import logo from '../../assets/logo.png'
 
 type DashboardProps = {
   onNavegar: (tela: Tela) => void
@@ -22,9 +23,12 @@ export default function Dashboard({ onNavegar }: DashboardProps) {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-[#2d5082] text-white shadow">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-bold">PaxEterna</h1>
-          <p className="mt-1 text-sm text-blue-100">Painel principal</p>
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 flex items-center gap-4">
+          <img src={logo} alt="Logo PaxEterna" className="h-12 w-auto" />
+          <div>
+            <h1 className="text-2xl font-bold leading-tight">PaxEterna</h1>
+            <p className="text-sm text-blue-100">Painel principal</p>
+          </div>
         </div>
       </header>
 
