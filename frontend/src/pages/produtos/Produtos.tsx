@@ -8,6 +8,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
+import Inventory2Icon from '@mui/icons-material/Inventory2'
 
 type ProdutosProps = {
   onVoltar?: () => void
@@ -16,45 +17,47 @@ type ProdutosProps = {
 const produtosIniciais: Produto[] = [
   {
     id: 1,
-    nome: 'Urna funerária padrão',
+    nome: 'Urna Funerária Luxo',
     tipo: 'Urna',
-    valor: 1850.00,
-    quantidade: 12,
+    valor: 3500,
+    quantidade: 8,
+    marca: 'Pax Premium',
+    descricao: 'Urna funerária em madeira com acabamento especial.',
+    fornecedor: 'Fornecedor Pax',
   },
   {
     id: 2,
-    nome: 'Urna funerária luxo',
+    nome: 'Urna Funerária Simples',
     tipo: 'Urna',
-    valor: 3200.00,
-    quantidade: 5,
+    valor: 1800,
+    quantidade: 15,
+    marca: 'Pax Standard',
+    descricao: 'Urna funerária de madeira com acabamento tradicional.',
+    fornecedor: 'Fornecedor Central',
   },
   {
     id: 3,
-    nome: 'Véu funerário',
+    nome: 'Véu Funerário',
     tipo: 'Acessório',
-    valor: 120.00,
-    quantidade: 18,
+    valor: 250,
+    quantidade: 20,
+    marca: 'Pax Care',
+    descricao: 'Véu utilizado nos serviços funerários.',
+    fornecedor: 'Distribuidora Vida',
   },
   {
     id: 4,
-    nome: 'Coroa de flores',
-    tipo: 'Acessório',
-    valor: 280.00,
-    quantidade: 9,
-  },
-  {
-    id: 5,
-    nome: 'Tanatopraxia',
-    tipo: 'Serviço',
-    valor: 850.00,
-    quantidade: 0,
+    nome: 'Coroa de Flores',
+    tipo: 'Floricultura',
+    valor: 450,
+    quantidade: 6,
+    marca: 'Flores da Paz',
+    descricao: 'Coroa de flores para cerimônias funerárias.',
+    fornecedor: 'Floricultura Esperança',
   },
 ]
 
-export default function Produtos({
-  onVoltar,
-}: ProdutosProps) {
-
+export default function Produtos({ onVoltar }: ProdutosProps) {
   const [produtos, setProdutos] =
     useState<Produto[]>(produtosIniciais)
 
@@ -64,10 +67,9 @@ export default function Produtos({
     useState<Produto | null>(null)
 
   /**
-   * Filtra produtos pelo nome ou tipo.
+   * Filtra os produtos por Nome ou Tipo.
    *
-   * Conforme RF016, a consulta deve permitir
-   * pesquisa por Nome ou Tipo.
+   * Esse comportamento segue o RF016.
    */
   const produtosFiltrados = useMemo(() => {
     const termo = busca.toLowerCase().trim()
@@ -84,45 +86,47 @@ export default function Produtos({
   }, [busca, produtos])
 
   /**
-   * Consulta o produto.
-   *
-   * Por enquanto apenas selecionamos o produto.
-   * O modal será implementado posteriormente.
+   * Abre os detalhes do produto.
    */
-  const handleConsultarProduto = (
-    produto: Produto
-  ) => {
+  const handleConsultarProduto = (produto: Produto) => {
     setProdutoSelecionado(produto)
   }
 
   /**
-   * Fecha a consulta do produto.
+   * Fecha o modal de consulta.
    */
-  const handleFecharConsulta = () => {
+  const handleFecharModal = () => {
     setProdutoSelecionado(null)
   }
 
   /**
-   * Edita o produto.
+   * Cadastro de produto.
+   *
+   * O formulário será criado posteriormente.
+   */
+  const handleCadastrarProduto = () => {
+    console.log('Cadastrar produto')
+  }
+
+  /**
+   * Edição de produto.
    *
    * O formulário de edição será criado posteriormente.
    */
-  const handleEditarProduto = (
-    produto: Produto
-  ) => {
+  const handleEditarProduto = (produto: Produto) => {
     console.log('Editar produto:', produto)
   }
 
   /**
-   * Exclui o produto.
+   * Exclusão de produto.
    *
-   * A documentação determina que um produto não pode
-   * ser excluído se ainda possuir quantidade em estoque.
+   * Por enquanto a exclusão ocorre somente no estado local.
+   *
+   * Regra da documentação:
+   * não deve ser possível excluir um produto
+   * que ainda possua quantidade disponível em estoque.
    */
-  const handleExcluirProduto = (
-    produto: Produto
-  ) => {
-
+  const handleExcluirProduto = (produto: Produto) => {
     if (produto.quantidade > 0) {
       window.alert(
         'Não é possível excluir: este recurso ainda possui unidades em estoque!'
@@ -141,27 +145,19 @@ export default function Produtos({
 
     setProdutos((produtosAtuais) =>
       produtosAtuais.filter(
-        (produtoAtual) =>
-          produtoAtual.id !== produto.id
+        (produtoAtual) => produtoAtual.id !== produto.id
       )
     )
+
+    window.alert('Produto excluído com sucesso!')
 
     /*
      * Futuramente:
      *
      * await excluirProduto(produto.id)
      *
-     * A remoção definitiva será feita pelo backend.
+     * e depois atualizar a lista.
      */
-  }
-
-  /**
-   * Abre o formulário de cadastro.
-   *
-   * Será implementado posteriormente.
-   */
-  const handleCadastrarProduto = () => {
-    console.log('Cadastrar produto')
   }
 
   return (
@@ -170,19 +166,25 @@ export default function Produtos({
       {/* =====================================================
           CABEÇALHO
       ====================================================== */}
-
       <header className="bg-[#2d5082] text-white shadow">
-
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
 
-          <div>
-            <h1 className="text-2xl font-bold">
-              Gerenciar Produtos
-            </h1>
+          <div className="flex items-center gap-3">
 
-            <p className="text-sm text-blue-100">
-              Cadastro, edição e consulta
-            </p>
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-white/10">
+              <Inventory2Icon />
+            </div>
+
+            <div>
+              <h1 className="text-2xl font-bold">
+                Gerenciar Produtos
+              </h1>
+
+              <p className="text-sm text-blue-100">
+                Cadastro, edição e consulta do estoque
+              </p>
+            </div>
+
           </div>
 
           <button
@@ -196,23 +198,19 @@ export default function Produtos({
           </button>
 
         </div>
-
       </header>
 
       {/* =====================================================
           CONTEÚDO
       ====================================================== */}
-
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
         {/* ===================================================
             BUSCA E CADASTRO
         ==================================================== */}
-
         <div className="mb-6 flex flex-col gap-3 sm:flex-row">
 
           {/* Pesquisa */}
-
           <div className="relative flex-1">
 
             <SearchIcon
@@ -233,7 +231,6 @@ export default function Produtos({
           </div>
 
           {/* Cadastro */}
-
           <button
             type="button"
             onClick={handleCadastrarProduto}
@@ -249,7 +246,6 @@ export default function Produtos({
         {/* ===================================================
             QUANTIDADE
         ==================================================== */}
-
         <p className="mb-3 text-sm text-gray-600">
           Exibindo{' '}
           <strong>
@@ -261,17 +257,14 @@ export default function Produtos({
         {/* ===================================================
             TABELA
         ==================================================== */}
-
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
 
           <div className="overflow-x-auto">
 
-            <table className="w-full min-w-[800px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
 
               {/* Cabeçalho */}
-
               <thead className="bg-gray-50 text-gray-800">
-
                 <tr>
 
                   <th className="px-5 py-3 font-semibold">
@@ -294,45 +287,42 @@ export default function Produtos({
                     Quantidade
                   </th>
 
+                  <th className="px-5 py-3 font-semibold">
+                    Marca
+                  </th>
+
                   <th className="px-5 py-3 text-center font-semibold">
                     Ações
                   </th>
 
                 </tr>
-
               </thead>
 
               {/* Corpo */}
-
               <tbody className="divide-y divide-gray-100">
 
                 {produtosFiltrados.map((produto) => (
-
                   <tr
                     key={produto.id}
                     className="transition hover:bg-gray-50"
                   >
 
                     {/* ID */}
-
                     <td className="px-5 py-4 font-medium text-gray-800">
                       {produto.id}
                     </td>
 
                     {/* Nome */}
-
-                    <td className="px-5 py-4 text-gray-700">
+                    <td className="px-5 py-4 font-medium text-gray-800">
                       {produto.nome}
                     </td>
 
                     {/* Tipo */}
-
                     <td className="px-5 py-4 text-gray-600">
                       {produto.tipo}
                     </td>
 
                     {/* Valor */}
-
                     <td className="px-5 py-4 text-gray-600">
                       {produto.valor.toLocaleString(
                         'pt-BR',
@@ -344,14 +334,13 @@ export default function Produtos({
                     </td>
 
                     {/* Quantidade */}
-
                     <td className="px-5 py-4">
 
                       <span
                         className={
                           produto.quantidade > 0
                             ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700'
-                            : 'rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600'
+                            : 'rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700'
                         }
                       >
                         {produto.quantidade}
@@ -359,64 +348,53 @@ export default function Produtos({
 
                     </td>
 
-                    {/* Ações */}
+                    {/* Marca */}
+                    <td className="px-5 py-4 text-gray-600">
+                      {produto.marca}
+                    </td>
 
+                    {/* Ações */}
                     <td className="px-5 py-4">
 
                       <div className="flex justify-center gap-1">
 
                         {/* Consultar */}
-
                         <button
                           type="button"
                           onClick={() =>
-                            handleConsultarProduto(
-                              produto
-                            )
+                            handleConsultarProduto(produto)
                           }
                           title="Consultar produto"
                           aria-label={`Consultar produto ${produto.nome}`}
                           className="cursor-pointer rounded-md px-3 py-1.5 text-blue-500 transition hover:bg-blue-50"
                         >
-                          <VisibilityIcon
-                            fontSize="small"
-                          />
+                          <VisibilityIcon fontSize="small" />
                         </button>
 
                         {/* Editar */}
-
                         <button
                           type="button"
                           onClick={() =>
-                            handleEditarProduto(
-                              produto
-                            )
+                            handleEditarProduto(produto)
                           }
                           title="Editar produto"
                           aria-label={`Editar produto ${produto.nome}`}
                           className="cursor-pointer rounded-md px-3 py-1.5 text-green-600 transition hover:bg-green-50"
                         >
-                          <EditIcon
-                            fontSize="small"
-                          />
+                          <EditIcon fontSize="small" />
                         </button>
 
                         {/* Excluir */}
-
                         <button
                           type="button"
                           onClick={() =>
-                            handleExcluirProduto(
-                              produto
-                            )
+                            handleExcluirProduto(produto)
                           }
                           title="Excluir produto"
                           aria-label={`Excluir produto ${produto.nome}`}
                           className="cursor-pointer rounded-md px-3 py-1.5 text-red-500 transition hover:bg-red-50"
                         >
-                          <DeleteIcon
-                            fontSize="small"
-                          />
+                          <DeleteIcon fontSize="small" />
                         </button>
 
                       </div>
@@ -424,7 +402,6 @@ export default function Produtos({
                     </td>
 
                   </tr>
-
                 ))}
 
               </tbody>
@@ -436,22 +413,18 @@ export default function Produtos({
           {/* =================================================
               NENHUM RESULTADO
           ================================================== */}
-
           {produtosFiltrados.length === 0 && (
-
             <div className="px-6 py-12 text-center">
 
               <p className="text-sm font-medium text-gray-700">
-                Nenhum resultado encontrado!
+                Nenhum recurso encontrado!
               </p>
 
               <p className="mt-1 text-sm text-gray-500">
-                Tente pesquisar utilizando outro nome
-                ou tipo.
+                Tente pesquisar utilizando outro nome ou tipo.
               </p>
 
             </div>
-
           )}
 
         </div>
@@ -459,39 +432,46 @@ export default function Produtos({
       </main>
 
       {/* =====================================================
-          CONSULTA DO PRODUTO
+          MODAL DE CONSULTA
       ====================================================== */}
-
       {produtoSelecionado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
 
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            {/* Cabeçalho */}
+            <div className="flex items-center justify-between border-b px-6 py-4">
 
-            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Consultar Produto
+                </h2>
 
-              <h2 className="text-xl font-semibold text-slate-800">
-                Consultar Produto
-              </h2>
+                <p className="text-sm text-gray-500">
+                  Detalhes do produto
+                </p>
+              </div>
 
               <button
                 type="button"
-                onClick={handleFecharConsulta}
-                className="cursor-pointer rounded-md px-3 py-1 text-gray-500 hover:bg-gray-100"
+                onClick={handleFecharModal}
+                className="cursor-pointer rounded-md px-2 py-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Fechar"
               >
-                ✕
+                ×
               </button>
 
             </div>
 
-            <div className="space-y-4">
+            {/* Dados */}
+            <div className="grid gap-4 px-6 py-6 sm:grid-cols-2">
 
               <div>
                 <p className="text-xs font-medium text-gray-500">
                   Nome
                 </p>
 
-                <p className="text-sm text-gray-800">
+                <p className="mt-1 text-sm font-medium text-gray-900">
                   {produtoSelecionado.nome}
                 </p>
               </div>
@@ -501,7 +481,7 @@ export default function Produtos({
                   Tipo
                 </p>
 
-                <p className="text-sm text-gray-800">
+                <p className="mt-1 text-sm text-gray-900">
                   {produtoSelecionado.tipo}
                 </p>
               </div>
@@ -511,7 +491,7 @@ export default function Produtos({
                   Valor
                 </p>
 
-                <p className="text-sm text-gray-800">
+                <p className="mt-1 text-sm text-gray-900">
                   {produtoSelecionado.valor.toLocaleString(
                     'pt-BR',
                     {
@@ -527,18 +507,51 @@ export default function Produtos({
                   Quantidade
                 </p>
 
-                <p className="text-sm text-gray-800">
+                <p className="mt-1 text-sm text-gray-900">
                   {produtoSelecionado.quantidade}
                 </p>
               </div>
 
+              <div>
+                <p className="text-xs font-medium text-gray-500">
+                  Marca
+                </p>
+
+                <p className="mt-1 text-sm text-gray-900">
+                  {produtoSelecionado.marca}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-gray-500">
+                  Fornecedor
+                </p>
+
+                <p className="mt-1 text-sm text-gray-900">
+                  {produtoSelecionado.fornecedor}
+                </p>
+              </div>
+
+              <div className="sm:col-span-2">
+
+                <p className="text-xs font-medium text-gray-500">
+                  Descrição
+                </p>
+
+                <p className="mt-1 text-sm text-gray-900">
+                  {produtoSelecionado.descricao}
+                </p>
+
+              </div>
+
             </div>
 
-            <div className="mt-6 flex justify-end">
+            {/* Rodapé */}
+            <div className="flex justify-end border-t px-6 py-4">
 
               <button
                 type="button"
-                onClick={handleFecharConsulta}
+                onClick={handleFecharModal}
                 className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
               >
                 Fechar
@@ -549,7 +562,6 @@ export default function Produtos({
           </div>
 
         </div>
-
       )}
 
     </div>

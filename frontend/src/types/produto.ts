@@ -4,4 +4,7 @@ export interface Produto {
   tipo: string
   valor: number
   quantidade: number
+  marca: string
+  descricao: string
+  fornecedor: string
 }
