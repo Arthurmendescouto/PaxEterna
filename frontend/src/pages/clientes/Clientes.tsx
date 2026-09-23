@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import ClienteModal from '../../components/clientes/ClienteModal'
+import CadastroClienteModal from '../../components/clientes/CadastroClienteModal'
 import type { Cliente } from '../../types/cliente'
 
 import SearchIcon from '@mui/icons-material/Search'
@@ -80,6 +81,8 @@ export default function Clientes({ onVoltar }: ClientesProps) {
 
   const [clienteSelecionado, setClienteSelecionado] =
     useState<Cliente | null>(null)
+
+  const [cadastroAberto, setCadastroAberto] = useState(false)
 
   /*
    * Futuramente podemos utilizar este estado para
@@ -170,17 +173,13 @@ export default function Clientes({ onVoltar }: ClientesProps) {
      */
   }
 
-  /**
-   * Cadastro de cliente.
-   *
-   * Ainda será implementado quando criarmos
-   * o formulário de cadastro.
-   */
   const handleCadastrarCliente = () => {
-    console.log('Cadastrar novo cliente')
+    setCadastroAberto(true)
+  }
 
-    // Futuramente:
-    // abrir formulário de cadastro
+  const handleSalvarCliente = (cliente: Cliente) => {
+    setClientes((clientesAtuais) => [...clientesAtuais, cliente])
+    setCadastroAberto(false)
   }
 
   return (
@@ -431,6 +430,14 @@ export default function Clientes({ onVoltar }: ClientesProps) {
         <ClienteModal
           cliente={clienteSelecionado}
           onClose={handleFecharModal}
+        />
+      )}
+
+      {cadastroAberto && (
+        <CadastroClienteModal
+          proximoId={Math.max(0, ...clientes.map((cliente) => cliente.id)) + 1}
+          onClose={() => setCadastroAberto(false)}
+          onSave={handleSalvarCliente}
         />
       )}
 
