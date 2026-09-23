@@ -1,5 +1,3 @@
-import type { Cliente } from '../types/cliente'
-
 const API_URL = 'http://localhost:3000/api'
 
 export async function excluirCliente(id: number): Promise<void> {
