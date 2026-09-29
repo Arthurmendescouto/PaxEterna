@@ -3,6 +3,7 @@ import {
   createCliente,
   findAllClientes,
   findClienteByCpf,
+  updateCliente,
 } from "../models/clienteModel";
 import { isValidCpf, isValidCpfFormat, isValidDate } from "../utils/validators";
 
@@ -110,3 +111,76 @@ export async function buscarClientes(req: Request, res: Response) {
 
 
 
+// [RF002] Atualizar Cliente
+export async function atualizarCliente(req: Request, res: Response) {
+  const cpfAtual = req.params.cpf.replace(/\D/g, "");
+  const { nome, cpf, rg, dataNascimento, telefones, endereco } = req.body;
+
+  // Exceção 10.1 — campos obrigatórios apagados ou não preenchidos
+  if (
+    !nome ||
+    !cpf ||
+    !rg ||
+    !dataNascimento ||
+    !Array.isArray(telefones) ||
+    telefones.length === 0 ||
+    !endereco ||
+    !endereco.logradouro ||
+    !endereco.numEndereco ||
+    !endereco.bairro ||
+    !endereco.cep ||
+    !endereco.cidade ||
+    !endereco.uf
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Preencha todos os campos obrigatórios!" });
+  }
+
+  // Exceção 10.2 — CPF alterado para um formato inválido
+  if (!isValidCpfFormat(cpf) || !isValidCpf(cpf)) {
+    return res
+      .status(400)
+      .json({ message: "CPF inválido! Use o formato: 000.000.000-00" });
+  }
+
+  if (!isValidDate(dataNascimento)) {
+    return res.status(400).json({ message: "Data de nascimento inválida!" });
+  }
+
+  try {
+    const novoCpf = cpf.replace(/\D/g, "");
+
+    const clienteAtual = await findClienteByCpf(cpfAtual);
+    if (!clienteAtual) {
+      return res.status(404).json({ message: "Cliente não encontrado!" });
+    }
+
+    // Exceção 10.3 — CPF alterado para um que já pertence a outro cliente
+    if (novoCpf !== cpfAtual) {
+      const outroCliente = await findClienteByCpf(novoCpf);
+      if (outroCliente) {
+        return res
+          .status(409)
+          .json({ message: "Existe outro cliente cadastrado com este CPF!" });
+      }
+    }
+
+    const cliente = await updateCliente(cpfAtual, {
+      cpf: novoCpf,
+      nome,
+      rg,
+      dataNascimento,
+      telefones: telefones.map((t: string) => t.replace(/\D/g, "")),
+      endereco,
+    });
+
+    return res.status(200).json({
+      message: "Operação realizada com sucesso!",
+      cliente,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro interno do servidor." });
+  }
+}

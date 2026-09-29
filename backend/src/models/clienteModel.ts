@@ -95,3 +95,41 @@ export async function createCliente(cliente: Cliente) {
 
   return findClienteByCpf(cpf);
 }
+
+export async function updateCliente(cpfAtual: string, dados: Cliente) {
+  const { cpf: novoCpf, nome, rg, dataNascimento, telefones, endereco } = dados;
+  const { logradouro, numEndereco, bairro, cep, cidade, uf } = endereco;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Atualiza os dados do cliente. Como a FK Telefone.cpf tem
+    // ON UPDATE CASCADE, trocar o cpf aqui já propaga para Telefone.
+    await conn.query(
+      `UPDATE Cliente
+          SET cpf = ?, nome = ?, rg = ?, data_nascimento = ?,
+              logradouro = ?, num_endereco = ?, bairro = ?, cep = ?, cidade = ?, uf = ?
+        WHERE cpf = ?`,
+      [novoCpf, nome, rg, dataNascimento, logradouro, numEndereco, bairro, cep, cidade, uf, cpfAtual]
+    );
+
+    // Substitui a lista de telefones pela enviada na atualização
+    await conn.query("DELETE FROM Telefone WHERE cpf = ?", [novoCpf]);
+    for (const telefone of telefones) {
+      await conn.query(
+        "INSERT INTO Telefone (telefone, cpf) VALUES (?, ?)",
+        [telefone, novoCpf]
+      );
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+
+  return findClienteByCpf(novoCpf);
+}
