@@ -173,6 +173,9 @@ export default function Dashboard({ onNavegar }: DashboardProps) {
 
         </div>
 
+        <p className="text-center text-sm text-slate-500 fixed bottom-5 left-0 w-full">
+          Em desenvolvimento pelo grupo 3: Alexandro Costa, Arthur Mendes, Filipe Alves, Nickolas Gabriel
+        </p>
       </main>
 
     </div>
