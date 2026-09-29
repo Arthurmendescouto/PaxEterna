@@ -37,6 +37,32 @@ export async function findClienteByCpf(cpf: string) {
   };
 }
 
+export async function findAllClientes() {
+  const [clienteRows]: any = await pool.query(
+    "SELECT * FROM Cliente ORDER BY nome, cpf"
+  );
+  if (clienteRows.length === 0) return [];
+
+  const cpfs = clienteRows.map((cliente: any) => cliente.cpf);
+  const placeholders = cpfs.map(() => "?").join(", ");
+  const [telefoneRows]: any = await pool.query(
+    `SELECT cpf, telefone FROM Telefone WHERE cpf IN (${placeholders})`,
+    cpfs
+  );
+
+  const telefonesPorCpf = new Map<string, string[]>();
+  for (const telefoneRow of telefoneRows) {
+    const telefones = telefonesPorCpf.get(telefoneRow.cpf) ?? [];
+    telefones.push(telefoneRow.telefone);
+    telefonesPorCpf.set(telefoneRow.cpf, telefones);
+  }
+
+  return clienteRows.map((cliente: any) => ({
+    ...cliente,
+    telefones: telefonesPorCpf.get(cliente.cpf) ?? [],
+  }));
+}
+
 export async function createCliente(cliente: Cliente) {
   const { cpf, nome, rg, dataNascimento, telefones, endereco } = cliente;
   const { logradouro, numEndereco, bairro, cep, cidade, uf } = endereco;
