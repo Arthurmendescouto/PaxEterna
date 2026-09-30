@@ -124,6 +124,9 @@ export default function Clientes({
   const [cadastroAberto, setCadastroAberto] =
     useState(false)
 
+  const [clienteEmEdicao, setClienteEmEdicao] =
+    useState<Cliente | null>(null)
+
   /*
    * Cliente que está aguardando confirmação
    * de exclusão.
@@ -186,18 +189,10 @@ export default function Clientes({
     setClienteSelecionado(null)
   }
 
-  /*
-   * ==========================================================
-   * EDITAR CLIENTE
-   * ==========================================================
-   *
-   * A implementação do formulário de edição será feita
-   * posteriormente.
-   */
   const handleEditarCliente = (
     cliente: Cliente
   ) => {
-    console.log('Editar cliente:', cliente)
+    setClienteEmEdicao(cliente)
   }
 
   /*
@@ -288,6 +283,15 @@ export default function Clientes({
     ])
 
     setCadastroAberto(false)
+  }
+
+  const handleAtualizarCliente = (clienteAtualizado: Cliente) => {
+    setClientes((clientesAtuais) =>
+      clientesAtuais.map((cliente) =>
+        cliente.id === clienteAtualizado.id ? clienteAtualizado : cliente
+      )
+    )
+    setClienteEmEdicao(null)
   }
 
   /*
@@ -635,6 +639,14 @@ export default function Clientes({
           onSave={handleSalvarCliente}
         />
 
+      )}
+
+      {clienteEmEdicao && (
+        <CadastroClienteModal
+          cliente={clienteEmEdicao}
+          onClose={() => setClienteEmEdicao(null)}
+          onSave={handleAtualizarCliente}
+        />
       )}
 
       {/* =====================================================

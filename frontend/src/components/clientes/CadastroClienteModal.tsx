@@ -7,7 +7,8 @@ import type { Cliente } from '../../types/cliente'
 interface CadastroClienteModalProps {
   onClose: () => void
   onSave: (cliente: Cliente) => void
-  proximoId: number
+  proximoId?: number
+  cliente?: Cliente
 }
 
 type FormularioCliente = Omit<Cliente, 'id' | 'dataCriacao'>
@@ -24,13 +25,42 @@ const formularioInicial: FormularioCliente = {
   contrato: 'Ativo',
 }
 
+const paraDataInput = (data: string) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return data
+  }
+
+  const [dia, mes, ano] = data.split('/')
+  return dia && mes && ano
+    ? `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`
+    : ''
+}
+
+const paraDataArmazenada = (data: string) => {
+  const [ano, mes, dia] = data.split('-')
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : data
+}
+
 function CadastroClienteModal({
   onClose,
   onSave,
   proximoId,
+  cliente,
 }: CadastroClienteModalProps) {
   const [formulario, setFormulario] =
-    useState<FormularioCliente>(formularioInicial)
+    useState<FormularioCliente>(() => cliente
+      ? {
+          nome: cliente.nome,
+          cpf: cliente.cpf,
+          dataNascimento: paraDataInput(cliente.dataNascimento),
+          telefone: cliente.telefone,
+          email: cliente.email,
+          endereco: cliente.endereco,
+          cidade: cliente.cidade,
+          uf: cliente.uf,
+          contrato: cliente.contrato,
+        }
+      : formularioInicial)
   const [erro, setErro] = useState('')
 
   const handleChange = (
@@ -52,12 +82,11 @@ function CadastroClienteModal({
       return
     }
 
-    const dataAtual = new Date().toLocaleDateString('pt-BR')
-
     onSave({
       ...formulario,
-      id: proximoId,
-      dataCriacao: dataAtual,
+      dataNascimento: paraDataArmazenada(formulario.dataNascimento),
+      id: cliente?.id ?? proximoId ?? 0,
+      dataCriacao: cliente?.dataCriacao ?? new Date().toLocaleDateString('pt-BR'),
     })
   }
 
@@ -99,10 +128,12 @@ function CadastroClienteModal({
               id="cadastro-cliente-titulo"
               className="text-xl font-bold text-gray-900"
             >
-              Cadastrar cliente
+              {cliente ? 'Editar cliente' : 'Cadastrar cliente'}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Preencha os dados para adicionar um novo cliente.
+              {cliente
+                ? 'Atualize os dados do cliente.'
+                : 'Preencha os dados para adicionar um novo cliente.'}
             </p>
           </div>
           <button
@@ -197,7 +228,7 @@ function CadastroClienteModal({
             type="submit"
             className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
           >
-            Salvar cliente
+            {cliente ? 'Salvar alterações' : 'Salvar cliente'}
           </button>
         </div>
       </form>
