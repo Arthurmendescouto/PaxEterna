@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import clienteRoutes from "./routes/clienteRoutes";
+import produtoRoutes from "./routes/produtoRoutes";
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api", clienteRoutes);
+app.use("/api/produtos", produtoRoutes);
 
 const PORT = process.env.PORT || 3001;
 
