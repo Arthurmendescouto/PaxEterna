@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 
+import CadastroProdutoModal from '../../components/produtos/CadastroProdutoModal'
 import type { Produto } from '../../types/produto'
 
 import SearchIcon from '@mui/icons-material/Search'
@@ -85,6 +86,10 @@ export default function Produtos({
    */
   const [busca, setBusca] = useState('')
 
+  const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [produtoEmEdicao, setProdutoEmEdicao] =
+    useState<Produto | null>(null)
+
   /*
    * Produto selecionado para consulta.
    */
@@ -145,15 +150,31 @@ export default function Produtos({
     setProdutoSelecionado(null)
   }
 
-  /*
-   * ==========================================================
-   * CADASTRAR PRODUTO
-   * ==========================================================
-   *
-   * O formulário será implementado posteriormente.
-   */
   const handleCadastrarProduto = () => {
-    console.log('Cadastrar produto')
+    setCadastroAberto(true)
+  }
+
+  const handleSalvarProduto = (produto: Omit<Produto, 'id'>) => {
+    if (produtoEmEdicao) {
+      setProdutos((produtosAtuais) =>
+        produtosAtuais.map((produtoAtual) =>
+          produtoAtual.id === produtoEmEdicao.id
+            ? { ...produto, id: produtoEmEdicao.id }
+            : produtoAtual
+        )
+      )
+      setProdutoEmEdicao(null)
+      return
+    }
+
+    setProdutos((produtosAtuais) => [
+      ...produtosAtuais,
+      {
+        ...produto,
+        id: Math.max(0, ...produtosAtuais.map((item) => item.id)) + 1,
+      },
+    ])
+    setCadastroAberto(false)
   }
 
   /*
@@ -161,10 +182,10 @@ export default function Produtos({
    * EDITAR PRODUTO
    * ==========================================================
    *
-   * O formulário de edição será implementado posteriormente.
+   * Abre o formulário preenchido com os dados atuais do produto.
    */
   const handleEditarProduto = (produto: Produto) => {
-    console.log('Editar produto:', produto)
+    setProdutoEmEdicao(produto)
   }
 
   /*
@@ -870,6 +891,17 @@ export default function Produtos({
 
         </div>
 
+      )}
+
+      {(cadastroAberto || produtoEmEdicao) && (
+        <CadastroProdutoModal
+          produto={produtoEmEdicao ?? undefined}
+          onClose={() => {
+            setCadastroAberto(false)
+            setProdutoEmEdicao(null)
+          }}
+          onSave={handleSalvarProduto}
+        />
       )}
 
     </div>
