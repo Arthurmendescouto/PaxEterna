@@ -7,11 +7,10 @@ import type { Cliente } from '../../types/cliente'
 interface CadastroClienteModalProps {
   onClose: () => void
   onSave: (cliente: Cliente) => void
-  proximoId?: number
   cliente?: Cliente
 }
 
-type FormularioCliente = Omit<Cliente, 'id' | 'dataCriacao'>
+type FormularioCliente = Omit<Cliente, 'dataCriacao'>
 
 const formularioInicial: FormularioCliente = {
   nome: '',
@@ -44,7 +43,6 @@ const paraDataArmazenada = (data: string) => {
 function CadastroClienteModal({
   onClose,
   onSave,
-  proximoId,
   cliente,
 }: CadastroClienteModalProps) {
   const [formulario, setFormulario] =
@@ -85,7 +83,6 @@ function CadastroClienteModal({
     onSave({
       ...formulario,
       dataNascimento: paraDataArmazenada(formulario.dataNascimento),
-      id: cliente?.id ?? proximoId ?? 0,
       dataCriacao: cliente?.dataCriacao ?? new Date().toLocaleDateString('pt-BR'),
     })
   }

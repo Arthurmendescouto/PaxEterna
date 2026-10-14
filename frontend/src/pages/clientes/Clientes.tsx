@@ -28,7 +28,6 @@ interface ClientesProps {
  */
 const clientesIniciais: Cliente[] = [
   {
-    id: 1,
     nome: 'Maria Aparecida Oliveira',
     cpf: '482.917.365-41',
     dataNascimento: '22/07/1965',
@@ -43,7 +42,6 @@ const clientesIniciais: Cliente[] = [
   },
 
   {
-    id: 2,
     nome: 'Carlos Eduardo Ferreira',
     cpf: '317.504.892-63',
     dataNascimento: '08/11/1978',
@@ -58,7 +56,6 @@ const clientesIniciais: Cliente[] = [
   },
 
   {
-    id: 3,
     nome: 'Ana Beatriz Souza Lima',
     cpf: '625.830.147-09',
     dataNascimento: '14/02/1990',
@@ -73,7 +70,6 @@ const clientesIniciais: Cliente[] = [
   },
 
   {
-    id: 4,
     nome: 'Roberto Alves Martins',
     cpf: '941.263.578-22',
     dataNascimento: '30/05/1952',
@@ -229,7 +225,6 @@ export default function Clientes({
    *
    * Posteriormente poderá ser substituído por algo como:
    *
-   * await excluirCliente(clienteParaExcluir.id)
    */
   const confirmarExclusao = () => {
 
@@ -240,7 +235,7 @@ export default function Clientes({
     setClientes((clientesAtuais) =>
       clientesAtuais.filter(
         (cliente) =>
-          cliente.id !== clienteParaExcluir.id
+          cliente.cpf !== clienteParaExcluir.cpf
       )
     )
 
@@ -285,10 +280,13 @@ export default function Clientes({
     setCadastroAberto(false)
   }
 
-  const handleAtualizarCliente = (clienteAtualizado: Cliente) => {
+  const handleAtualizarCliente = (
+    clienteOriginal: Cliente,
+    clienteAtualizado: Cliente
+  ) => {
     setClientes((clientesAtuais) =>
       clientesAtuais.map((cliente) =>
-        cliente.id === clienteAtualizado.id ? clienteAtualizado : cliente
+        cliente.cpf === clienteOriginal.cpf ? clienteAtualizado : cliente
       )
     )
     setClienteEmEdicao(null)
@@ -435,10 +433,6 @@ export default function Clientes({
                 <tr>
 
                   <th className="px-5 py-3 font-semibold">
-                    ID
-                  </th>
-
-                  <th className="px-5 py-3 font-semibold">
                     Nome
                   </th>
 
@@ -469,15 +463,9 @@ export default function Clientes({
                 {clientesFiltrados.map((cliente) => (
 
                   <tr
-                    key={cliente.id}
+                    key={cliente.cpf}
                     className="transition hover:bg-gray-50"
                   >
-
-                    {/* ID */}
-
-                    <td className="px-5 py-4 font-medium text-gray-800">
-                      {cliente.id}
-                    </td>
 
                     {/* Nome */}
 
@@ -625,14 +613,6 @@ export default function Clientes({
       {cadastroAberto && (
 
         <CadastroClienteModal
-          proximoId={
-            Math.max(
-              0,
-              ...clientes.map(
-                (cliente) => cliente.id
-              )
-            ) + 1
-          }
           onClose={() =>
             setCadastroAberto(false)
           }
@@ -645,7 +625,9 @@ export default function Clientes({
         <CadastroClienteModal
           cliente={clienteEmEdicao}
           onClose={() => setClienteEmEdicao(null)}
-          onSave={handleAtualizarCliente}
+          onSave={(clienteAtualizado) =>
+            handleAtualizarCliente(clienteEmEdicao, clienteAtualizado)
+          }
         />
       )}
 

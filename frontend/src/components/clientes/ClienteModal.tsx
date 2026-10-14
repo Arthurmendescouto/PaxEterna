@@ -1,5 +1,4 @@
 interface Cliente {
-  id: number
   nome: string
   cpf: string
   dataNascimento: string
@@ -39,11 +38,6 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
 
         {/* Dados do cliente */}
         <div className="grid grid-cols-1 gap-5 px-6 py-6 sm:grid-cols-2">
-
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase">ID</p>
-            <p className="text-sm text-gray-900">{cliente.id}</p>
-          </div>
 
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase">Nome</p>
