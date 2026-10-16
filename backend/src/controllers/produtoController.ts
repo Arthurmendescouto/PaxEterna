@@ -97,3 +97,63 @@ export const atualizarProduto = async (req: Request, res: Response) => {
       .json({ error: "Erro de conexão. Tente novamente mais tarde." });
   }
 };
+
+export const buscarProduto = async (req: Request, res: Response) => {
+  try {
+    const { id_produto } = req.params;
+
+    const produto = await produtoModel.buscarProdutoPorId(Number(id_produto));
+
+    if (!produto) {
+      return res.status(404).json({ error: "Produto não encontrado." });
+    }
+
+    return res.status(200).json(produto);
+  } catch (error) {
+    console.error("Erro ao buscar produto:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro de conexão. Tente novamente mais tarde." });
+  }
+};
+
+export const buscarProdutos = async (req: Request, res: Response) => {
+  try {
+    const produtos = await produtoModel.buscarTodosProdutos();
+    return res.status(200).json(produtos);
+  } catch (error) {
+    console.error("Erro ao buscar produtos:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro de conexão. Tente novamente mais tarde." });
+  }
+};
+
+export const removerProduto = async (req: Request, res: Response) => {
+  try {
+    const { id_produto } = req.params;
+
+    const produtoExistente = await produtoModel.buscarProdutoPorId(
+      Number(id_produto),
+    );
+
+    if (!produtoExistente) {
+      return res.status(404).json({ error: "Produto não encontrado." });
+    }
+
+    const removido = await produtoModel.removerProduto(Number(id_produto));
+
+    if (!removido) {
+      return res.status(500).json({ error: "Erro ao remover produto." });
+    }
+
+    return res.status(200).json({
+      message: "Produto removido com sucesso!",
+    });
+  } catch (error) {
+    console.error("Erro ao remover produto:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro de conexão. Tente novamente mais tarde." });
+  }
+};

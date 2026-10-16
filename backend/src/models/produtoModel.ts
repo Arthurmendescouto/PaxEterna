@@ -65,3 +65,15 @@ export const criarProduto = async (produto: Produto) => {
     ...produto,
   };
 };
+
+export const buscarTodosProdutos = async () => {
+  const query = `SELECT * FROM Produto`;
+  const [rows]: any = await pool.execute(query);
+  return rows;
+};
+
+export const removerProduto = async (id_produto: number) => {
+  const query = `DELETE FROM Produto WHERE id_produto = ?`;
+  const [result]: any = await pool.execute(query, [id_produto]);
+  return result.affectedRows > 0;
+};

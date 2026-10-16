@@ -1,7 +1,7 @@
 const API_URL = 'http://localhost:3000/api'
 
-export async function excluirCliente(id: number): Promise<void> {
-  const resposta = await fetch(`${API_URL}/clientes/${id}`, {
+export async function excluirCliente(cpf: string): Promise<void> {
+  const resposta = await fetch(`${API_URL}/clientes/${encodeURIComponent(cpf)}`, {
     method: 'DELETE',
   })
 
