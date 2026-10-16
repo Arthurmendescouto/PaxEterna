@@ -3,7 +3,8 @@ import * as produtoModel from "../models/produtoModel";
 
 export const cadastrarProduto = async (req: Request, res: Response) => {
   try {
-    const { nome, tipo, valor, quantidade, unidade_medida } = req.body;
+    const { nome, tipo, valor, quantidade, marca, descricao, fornecedor, unidade_medida } =
+      req.body;
 
     if (!nome || !tipo || valor === undefined || quantidade === undefined) {
       return res
@@ -29,6 +30,9 @@ export const cadastrarProduto = async (req: Request, res: Response) => {
       tipo,
       valor,
       quantidade,
+      marca,
+      descricao,
+      fornecedor,
       unidade_medida: unidade_medida || "unidade",
     });
 
@@ -47,7 +51,8 @@ export const cadastrarProduto = async (req: Request, res: Response) => {
 export const atualizarProduto = async (req: Request, res: Response) => {
   try {
     const { id_produto } = req.params;
-    const { nome, tipo, valor, quantidade, unidade_medida } = req.body;
+    const { nome, tipo, valor, quantidade, marca, descricao, fornecedor, unidade_medida } =
+      req.body;
 
     // Verificar se o produto existe no banco
     const produtoExistente = await produtoModel.buscarProdutoPorId(
@@ -82,6 +87,9 @@ export const atualizarProduto = async (req: Request, res: Response) => {
         tipo,
         valor,
         quantidade,
+        marca,
+        descricao,
+        fornecedor,
         unidade_medida: unidade_medida || produtoExistente.unidade_medida,
       },
     );

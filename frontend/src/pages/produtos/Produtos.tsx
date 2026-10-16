@@ -1,7 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import CadastroProdutoModal from '../../components/produtos/CadastroProdutoModal'
 import type { Produto } from '../../types/produto'
+import {
+  atualizarProduto as atualizarProdutoApi,
+  cadastrarProduto as cadastrarProdutoApi,
+  excluirProduto as excluirProdutoApi,
+  listarProdutos,
+} from '../../services/produtoService'
 
 import SearchIcon from '@mui/icons-material/Search'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -15,71 +21,26 @@ type ProdutosProps = {
   onVoltar?: () => void
 }
 
-/*
- * Dados temporários.
- *
- * Posteriormente serão substituídos pelos dados
- * vindos do backend através do produtoService.
- */
-const produtosIniciais: Produto[] = [
-  {
-    id: 1,
-    nome: 'Urna Funerária Luxo',
-    tipo: 'Urna',
-    valor: 3500,
-    quantidade: 8,
-    marca: 'Pax Premium',
-    descricao:
-      'Urna funerária em madeira com acabamento especial.',
-    fornecedor: 'Fornecedor Pax',
-  },
-  {
-    id: 2,
-    nome: 'Urna Funerária Simples',
-    tipo: 'Urna',
-    valor: 1800,
-    quantidade: 15,
-    marca: 'Pax Standard',
-    descricao:
-      'Urna funerária de madeira com acabamento tradicional.',
-    fornecedor: 'Fornecedor Central',
-  },
-  {
-    id: 3,
-    nome: 'Véu Funerário',
-    tipo: 'Acessório',
-    valor: 250,
-    quantidade: 20,
-    marca: 'Pax Care',
-    descricao:
-      'Véu utilizado nos serviços funerários.',
-    fornecedor: 'Distribuidora Vida',
-  },
-  {
-    id: 4,
-    nome: 'Coroa de Flores',
-    tipo: 'Floricultura',
-    valor: 450,
-    quantidade: 6,
-    marca: 'Flores da Paz',
-    descricao:
-      'Coroa de flores para cerimônias funerárias.',
-    fornecedor: 'Floricultura Esperança',
-  },
-]
-
 export default function Produtos({
   onVoltar,
 }: ProdutosProps) {
 
   /*
-   * Lista de produtos.
-   *
-   * Atualmente utiliza dados locais.
-   * Posteriormente será alimentada pelo backend.
+   * Lista de produtos, carregada do backend.
    */
-  const [produtos, setProdutos] =
-    useState<Produto[]>(produtosIniciais)
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState('')
+
+  /*
+   * Busca a lista de produtos no backend ao montar a página.
+   */
+  useEffect(() => {
+    listarProdutos()
+      .then(setProdutos)
+      .catch((erroRequisicao: Error) => setErro(erroRequisicao.message))
+      .finally(() => setCarregando(false))
+  }, [])
 
   /*
    * Texto utilizado na pesquisa.
@@ -154,27 +115,34 @@ export default function Produtos({
     setCadastroAberto(true)
   }
 
-  const handleSalvarProduto = (produto: Omit<Produto, 'id'>) => {
-    if (produtoEmEdicao) {
-      setProdutos((produtosAtuais) =>
-        produtosAtuais.map((produtoAtual) =>
-          produtoAtual.id === produtoEmEdicao.id
-            ? { ...produto, id: produtoEmEdicao.id }
-            : produtoAtual
+  const handleSalvarProduto = async (produto: Omit<Produto, 'id'>) => {
+    try {
+      if (produtoEmEdicao) {
+        const produtoAtualizado = await atualizarProdutoApi(
+          produtoEmEdicao.id,
+          produto
         )
-      )
-      setProdutoEmEdicao(null)
-      return
-    }
+        setProdutos((produtosAtuais) =>
+          produtosAtuais.map((produtoAtual) =>
+            produtoAtual.id === produtoEmEdicao.id
+              ? produtoAtualizado
+              : produtoAtual
+          )
+        )
+        setProdutoEmEdicao(null)
+        return
+      }
 
-    setProdutos((produtosAtuais) => [
-      ...produtosAtuais,
-      {
-        ...produto,
-        id: Math.max(0, ...produtosAtuais.map((item) => item.id)) + 1,
-      },
-    ])
-    setCadastroAberto(false)
+      const produtoCriado = await cadastrarProdutoApi(produto)
+      setProdutos((produtosAtuais) => [...produtosAtuais, produtoCriado])
+      setCadastroAberto(false)
+    } catch (erroRequisicao) {
+      setErro(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível salvar o produto.'
+      )
+    }
   }
 
   /*
@@ -215,35 +183,39 @@ export default function Produtos({
    * CONFIRMAR EXCLUSÃO
    * ==========================================================
    */
-  const confirmarExclusao = () => {
+  const confirmarExclusao = async () => {
 
     if (!produtoParaExcluir) {
       return
     }
 
-    /*
-     * Remove o produto da lista local.
-     *
-     * Posteriormente, aqui poderemos chamar:
-     *
-     * await excluirProduto(produtoParaExcluir.id)
-     */
-    setProdutos((produtosAtuais) =>
-      produtosAtuais.filter(
-        (produto) =>
-          produto.id !== produtoParaExcluir.id
+    try {
+      await excluirProdutoApi(produtoParaExcluir.id)
+
+      setProdutos((produtosAtuais) =>
+        produtosAtuais.filter(
+          (produto) =>
+            produto.id !== produtoParaExcluir.id
+        )
       )
-    )
 
-    /*
-     * Fecha o modal de confirmação.
-     */
-    setProdutoParaExcluir(null)
+      /*
+       * Fecha o modal de confirmação.
+       */
+      setProdutoParaExcluir(null)
 
-    /*
-     * Abre a mensagem de sucesso.
-     */
-    setMensagemSucesso(true)
+      /*
+       * Abre a mensagem de sucesso.
+       */
+      setMensagemSucesso(true)
+    } catch (erroRequisicao) {
+      setErro(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível excluir o produto.'
+      )
+      setProdutoParaExcluir(null)
+    }
   }
 
   /*
@@ -310,6 +282,18 @@ export default function Produtos({
       ====================================================== */}
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+        {erro && (
+          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+            {erro}
+          </div>
+        )}
+
+        {carregando && (
+          <p className="mb-4 text-sm text-gray-500">
+            Carregando produtos...
+          </p>
+        )}
 
         {/* ===================================================
             PESQUISA + CADASTRO

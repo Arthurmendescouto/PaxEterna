@@ -1,6 +1,40 @@
 import type { Produto } from '../types/produto'
 
-const API_URL = 'http://localhost:3000/api'
+const API_URL = 'http://localhost:3001/api'
+
+/*
+ * O backend retorna o campo `id_produto` (e `marca`/`descricao`/`fornecedor`
+ * podem vir null quando não informados). Essas funções convertem entre o
+ * formato do backend e o tipo `Produto` usado no frontend.
+ */
+type ProdutoBackend = Omit<Produto, 'id' | 'marca' | 'descricao' | 'fornecedor'> & {
+  id_produto: number
+  marca: string | null
+  descricao: string | null
+  fornecedor: string | null
+}
+
+function normalizarProduto(produto: ProdutoBackend): Produto {
+  return {
+    id: produto.id_produto,
+    nome: produto.nome,
+    tipo: produto.tipo,
+    valor: Number(produto.valor),
+    quantidade: Number(produto.quantidade),
+    marca: produto.marca ?? '',
+    descricao: produto.descricao ?? '',
+    fornecedor: produto.fornecedor ?? '',
+  }
+}
+
+async function tratarErro(resposta: Response, mensagemPadrao: string): Promise<never> {
+  try {
+    const corpo = await resposta.json()
+    throw new Error(corpo.error ?? mensagemPadrao)
+  } catch {
+    throw new Error(mensagemPadrao)
+  }
+}
 
 /**
  * Busca todos os produtos cadastrados.
@@ -9,25 +43,24 @@ export async function listarProdutos(): Promise<Produto[]> {
   const resposta = await fetch(`${API_URL}/produtos`)
 
   if (!resposta.ok) {
-    throw new Error('Não foi possível carregar os produtos.')
+    return tratarErro(resposta, 'Não foi possível carregar os produtos.')
   }
 
-  return resposta.json()
+  const produtos: ProdutoBackend[] = await resposta.json()
+  return produtos.map(normalizarProduto)
 }
 
 /**
  * Busca um produto pelo ID.
  */
-export async function buscarProduto(
-  id: number
-): Promise<Produto> {
+export async function buscarProduto(id: number): Promise<Produto> {
   const resposta = await fetch(`${API_URL}/produtos/${id}`)
 
   if (!resposta.ok) {
-    throw new Error('Não foi possível consultar o produto.')
+    return tratarErro(resposta, 'Não foi possível consultar o produto.')
   }
 
-  return resposta.json()
+  return normalizarProduto(await resposta.json())
 }
 
 /**
@@ -45,10 +78,11 @@ export async function cadastrarProduto(
   })
 
   if (!resposta.ok) {
-    throw new Error('Não foi possível cadastrar o produto.')
+    return tratarErro(resposta, 'Não foi possível cadastrar o produto.')
   }
 
-  return resposta.json()
+  const { produto: produtoCriado } = await resposta.json()
+  return normalizarProduto(produtoCriado)
 }
 
 /**
@@ -67,23 +101,22 @@ export async function atualizarProduto(
   })
 
   if (!resposta.ok) {
-    throw new Error('Não foi possível atualizar o produto.')
+    return tratarErro(resposta, 'Não foi possível atualizar o produto.')
   }
 
-  return resposta.json()
+  const { produto: produtoAtualizado } = await resposta.json()
+  return normalizarProduto(produtoAtualizado)
 }
 
 /**
  * Exclui um produto.
  */
-export async function excluirProduto(
-  id: number
-): Promise<void> {
+export async function excluirProduto(id: number): Promise<void> {
   const resposta = await fetch(`${API_URL}/produtos/${id}`, {
     method: 'DELETE',
   })
 
   if (!resposta.ok) {
-    throw new Error('Não foi possível excluir o produto.')
+    return tratarErro(resposta, 'Não foi possível excluir o produto.')
   }
 }
