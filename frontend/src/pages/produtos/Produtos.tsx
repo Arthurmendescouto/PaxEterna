@@ -217,16 +217,15 @@ export default function Produtos({ onVoltar }: ProdutosProps) {
         {/* TABELA — colunas do RF016 */}
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left text-sm">
+            <table className="w-full min-w-[800px] text-left text-sm">
               <thead className="bg-gray-50 text-gray-800">
                 <tr>
+                  <th className="px-5 py-3 font-semibold">ID</th>
                   <th className="px-5 py-3 font-semibold">Nome</th>
                   <th className="px-5 py-3 font-semibold">Tipo</th>
                   <th className="px-5 py-3 font-semibold">Valor</th>
                   <th className="px-5 py-3 font-semibold">Quantidade</th>
                   <th className="px-5 py-3 font-semibold">Marca</th>
-                  <th className="px-5 py-3 font-semibold">Descrição</th>
-                  <th className="px-5 py-3 font-semibold">Fornecedor</th>
                   <th className="px-5 py-3 text-center font-semibold">Ações</th>
                 </tr>
               </thead>
@@ -234,6 +233,7 @@ export default function Produtos({ onVoltar }: ProdutosProps) {
               <tbody className="divide-y divide-gray-100">
                 {produtosDaPagina.map((produto) => (
                   <tr key={produto.id} className="transition hover:bg-gray-50">
+                    <td className="px-5 py-4 text-gray-600">{produto.id}</td>
                     <td className="px-5 py-4 font-medium text-gray-800">{produto.nome}</td>
                     <td className="px-5 py-4 text-gray-600">{produto.tipo}</td>
                     <td className="px-5 py-4 text-gray-600">{formatarValor(produto.valor)}</td>
@@ -249,10 +249,6 @@ export default function Produtos({ onVoltar }: ProdutosProps) {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-gray-600">{produto.marca || '—'}</td>
-                    <td className="max-w-[220px] truncate px-5 py-4 text-gray-600" title={produto.descricao}>
-                      {produto.descricao || '—'}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">{produto.fornecedor || '—'}</td>
 
                     <td className="px-5 py-4">
                       <div className="flex justify-center gap-1">
@@ -360,6 +356,7 @@ export default function Produtos({ onVoltar }: ProdutosProps) {
 
             <div className="grid gap-4 px-6 py-6 sm:grid-cols-2">
               {[
+                ['ID', String(produtoSelecionado.id)],
                 ['Nome', produtoSelecionado.nome],
                 ['Tipo', produtoSelecionado.tipo],
                 ['Valor', formatarValor(produtoSelecionado.valor)],
