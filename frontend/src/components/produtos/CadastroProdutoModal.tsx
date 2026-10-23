@@ -11,7 +11,8 @@ type FormularioProduto = Omit<Produto, 'id' | 'valor' | 'quantidade'> & {
 
 interface CadastroProdutoModalProps {
   onClose: () => void
-  onSave: (produto: Omit<Produto, 'id'>) => void
+  /* Deve lançar um erro com a mensagem a exibir caso a operação falhe. */
+  onSave: (produto: Omit<Produto, 'id'>) => Promise<void>
   produto?: Produto
 }
 
@@ -43,6 +44,7 @@ export default function CadastroProdutoModal({
   const [formulario, setFormulario] =
     useState<FormularioProduto>(() => criarFormulario(produto))
   const [erro, setErro] = useState('')
+  const [salvando, setSalvando] = useState(false)
 
   const handleChange = (
     campo: keyof FormularioProduto,
@@ -55,36 +57,51 @@ export default function CadastroProdutoModal({
     setErro('')
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
     const valor = Number(formulario.valor)
     const quantidade = Number(formulario.quantidade)
 
+    // Mensagens dos fluxos de exceção do RF013/RF014
     if (
       !formulario.nome.trim() ||
       !formulario.tipo.trim() ||
-      !formulario.valor ||
-      !formulario.quantidade ||
-      !Number.isFinite(valor) ||
-      valor < 0 ||
-      !Number.isInteger(quantidade) ||
-      quantidade < 0
+      !formulario.valor.trim() ||
+      !formulario.quantidade.trim()
     ) {
-      setErro('Preencha corretamente os campos obrigatórios.')
+      setErro('Preencha todos os campos obrigatórios!')
+      return
+    }
+    if (!Number.isFinite(valor) || valor < 0) {
+      setErro('Valor inválido!')
+      return
+    }
+    if (!Number.isInteger(quantidade) || quantidade < 0) {
+      setErro('Quantidade inválida!')
       return
     }
 
-    onSave({
-      ...formulario,
-      nome: formulario.nome.trim(),
-      tipo: formulario.tipo.trim(),
-      valor,
-      quantidade,
-      marca: formulario.marca.trim(),
-      descricao: formulario.descricao.trim(),
-      fornecedor: formulario.fornecedor.trim(),
-    })
+    setSalvando(true)
+    try {
+      await onSave({
+        nome: formulario.nome.trim(),
+        tipo: formulario.tipo.trim(),
+        valor,
+        quantidade,
+        marca: formulario.marca.trim(),
+        descricao: formulario.descricao.trim(),
+        fornecedor: formulario.fornecedor.trim(),
+      })
+    } catch (erroRequisicao) {
+      setErro(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível salvar o produto.'
+      )
+    } finally {
+      setSalvando(false)
+    }
   }
 
   const campoTexto = (
@@ -116,6 +133,7 @@ export default function CadastroProdutoModal({
     >
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="max-h-[95vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
@@ -124,7 +142,7 @@ export default function CadastroProdutoModal({
               id="cadastro-produto-titulo"
               className="text-xl font-bold text-gray-900"
             >
-              {produto ? 'Atualizar produto' : 'Cadastrar produto'}
+              {produto ? 'Editar produto' : 'Cadastrar produto'}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
               {produto
@@ -187,7 +205,7 @@ export default function CadastroProdutoModal({
           </label>
 
           {erro && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2" role="alert">
               {erro}
             </p>
           )}
@@ -203,9 +221,10 @@ export default function CadastroProdutoModal({
           </button>
           <button
             type="submit"
-            className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
+            disabled={salvando}
+            className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {produto ? 'Salvar alterações' : 'Salvar produto'}
+            {salvando ? 'Salvando...' : produto ? 'Salvar' : 'Cadastrar'}
           </button>
         </div>
       </form>

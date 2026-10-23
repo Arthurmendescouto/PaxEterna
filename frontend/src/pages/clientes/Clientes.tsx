@@ -260,9 +260,11 @@ export default function Clientes({ onVoltar }: ClientesProps) {
                     <td className="px-5 py-4 font-medium text-gray-800">{cliente.nome}</td>
                     <td className="px-5 py-4 text-gray-600">{formatarCpf(cliente.cpf)}</td>
                     <td className="px-5 py-4 text-gray-600">
-                      {cliente.telefones[0] ? formatarTelefone(cliente.telefones[0]) : '—'}
+                      {cliente.telefone ? formatarTelefone(cliente.telefone) : '—'}
                     </td>
-                    <td className="px-5 py-4 text-gray-600">{formatarData(cliente.dataNascimento)}</td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {cliente.dataNascimento ? formatarData(cliente.dataNascimento) : '—'}
+                    </td>
                     <td className="px-5 py-4">
                       <span
                         className={

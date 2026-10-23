@@ -9,21 +9,6 @@ export function formatarCpf(valor: string) {
     .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2')
 }
 
-// RG: aceita apenas números, ponto e traço, e um "X" opcional no final
-// (alguns estados, como SP, usam X como dígito verificador).
-export function formatarRg(valor: string) {
-  const limpo = valor.toUpperCase().replace(/[^\d.\-X]/g, '')
-  const semX = limpo.replace(/X/g, '').replace(/^[.-]+/, '')
-  const terminaComX = limpo.endsWith('X') && /\d/.test(semX)
-  return (semX + (terminaComX ? 'X' : '')).slice(0, 20)
-}
-
-// RG válido: de 5 a 14 dígitos (o X final conta como dígito).
-export function rgValido(rg: string) {
-  const digitos = rg.replace(/[.-]/g, '')
-  return /^\d[\d.-]*[\dX]$/i.test(rg) && /^\d{4,13}[\dX]$/i.test(digitos)
-}
-
 // 77981234567 -> (77) 98123-4567 | 7732345678 -> (77) 3234-5678
 export function formatarTelefone(valor: string) {
   const d = somenteDigitos(valor).slice(0, 11)
