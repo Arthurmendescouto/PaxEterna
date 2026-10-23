@@ -18,9 +18,44 @@ export interface Cliente {
   endereco: Endereco;
 }
 
+// Colunas do cliente já no formato usado pela API (camelCase).
+// A data vem como texto (YYYY-MM-DD) para não sofrer ajuste de fuso.
+// "possuiContrato" indica se o cliente tem algum contrato ativo.
+const SELECT_CLIENTE = `
+  SELECT c.cpf, c.nome, c.rg,
+         DATE_FORMAT(c.data_nascimento, '%Y-%m-%d') AS dataNascimento,
+         c.logradouro, c.num_endereco AS numEndereco, c.bairro, c.cep,
+         c.cidade, c.uf, c.status,
+         EXISTS (
+           SELECT 1 FROM Contrato ct
+            WHERE ct.fk_Cliente_cpf = c.cpf AND ct.status = 'ativo'
+         ) AS possuiContrato
+    FROM Cliente c`;
+
+function montarCliente(row: any, telefones: string[]) {
+  return {
+    cpf: row.cpf,
+    nome: row.nome,
+    rg: row.rg,
+    dataNascimento: row.dataNascimento,
+    telefones,
+    endereco: {
+      logradouro: row.logradouro ?? "",
+      numEndereco: row.numEndereco ?? "",
+      bairro: row.bairro ?? "",
+      cep: row.cep ?? "",
+      cidade: row.cidade ?? "",
+      uf: row.uf ?? "",
+    },
+    status: row.status,
+    possuiContrato: Boolean(row.possuiContrato),
+  };
+}
+
+// Busca o cliente pelo CPF, independente do status (ativo ou inativo).
 export async function findClienteByCpf(cpf: string) {
   const [clienteRows]: any = await pool.query(
-    "SELECT * FROM Cliente WHERE cpf = ?",
+    `${SELECT_CLIENTE} WHERE c.cpf = ?`,
     [cpf]
   );
   const cliente = clienteRows[0];
@@ -31,15 +66,16 @@ export async function findClienteByCpf(cpf: string) {
     [cpf]
   );
 
-  return {
-    ...cliente,
-    telefones: telefoneRows.map((t: any) => t.telefone),
-  };
+  return montarCliente(
+    cliente,
+    telefoneRows.map((t: any) => t.telefone)
+  );
 }
 
+// Lista apenas os clientes ativos (os inativos foram "deletados" — RF003).
 export async function findAllClientes() {
   const [clienteRows]: any = await pool.query(
-    "SELECT * FROM Cliente ORDER BY nome, cpf"
+    `${SELECT_CLIENTE} WHERE c.status = 'ativo' ORDER BY c.nome, c.cpf`
   );
   if (clienteRows.length === 0) return [];
 
@@ -57,10 +93,9 @@ export async function findAllClientes() {
     telefonesPorCpf.set(telefoneRow.cpf, telefones);
   }
 
-  return clienteRows.map((cliente: any) => ({
-    ...cliente,
-    telefones: telefonesPorCpf.get(cliente.cpf) ?? [],
-  }));
+  return clienteRows.map((cliente: any) =>
+    montarCliente(cliente, telefonesPorCpf.get(cliente.cpf) ?? [])
+  );
 }
 
 export async function createCliente(cliente: Cliente) {
@@ -132,4 +167,10 @@ export async function updateCliente(cpfAtual: string, dados: Cliente) {
   }
 
   return findClienteByCpf(novoCpf);
+}
+
+// RF003: o cliente não é apagado, apenas marcado como inativo.
+// Assim contratos e compras ligados a ele são preservados.
+export async function desativarCliente(cpf: string) {
+  await pool.query("UPDATE Cliente SET status = 'inativo' WHERE cpf = ?", [cpf]);
 }

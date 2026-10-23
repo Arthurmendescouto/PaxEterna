@@ -1,66 +1,123 @@
 import { Request, Response } from "express";
 import {
+  Cliente,
   createCliente,
+  desativarCliente,
   findAllClientes,
   findClienteByCpf,
   updateCliente,
 } from "../models/clienteModel";
 import { isValidCpf, isValidCpfFormat, isValidDate } from "../utils/validators";
 
-// [RF001] Cadastrar Cliente
-export async function cadastrarCliente(req: Request, res: Response) {
-  const { nome, cpf, rg, dataNascimento, telefones, endereco } = req.body;
+const somenteDigitos = (valor: string) => String(valor ?? "").replace(/\D/g, "");
 
-  // Exceção 8.1 — campos obrigatórios não preenchidos
+// Valida o corpo enviado no cadastro/atualização.
+// Retorna a mensagem de erro ou os dados já normalizados para o banco.
+function validarCliente(
+  body: any
+): { erro: string } | { dados: Cliente } {
+  const { nome, cpf, rg, dataNascimento, telefones, endereco } = body ?? {};
+
+  // Exceção 8.1 (RF001) / 10.1 (RF002) — campos obrigatórios
+  const telefonesPreenchidos = Array.isArray(telefones)
+    ? telefones.map(somenteDigitos).filter(Boolean)
+    : [];
   if (
-    !nome ||
+    !nome?.trim() ||
     !cpf ||
-    !rg ||
+    !rg?.trim() ||
     !dataNascimento ||
-    !Array.isArray(telefones) ||
-    telefones.length === 0 ||
+    telefonesPreenchidos.length === 0 ||
     !endereco ||
-    !endereco.logradouro ||
-    !endereco.numEndereco ||
-    !endereco.bairro ||
+    !endereco.logradouro?.trim() ||
+    !endereco.numEndereco?.trim() ||
+    !endereco.bairro?.trim() ||
     !endereco.cep ||
-    !endereco.cidade ||
+    !endereco.cidade?.trim() ||
     !endereco.uf
   ) {
-    return res
-      .status(400)
-      .json({ message: "Preencha todos os campos obrigatórios!" });
+    return { erro: "Preencha todos os campos obrigatórios!" };
   }
 
-  // Exceção 8.2 — CPF com formato inválido
+  // Exceção 8.2 (RF001) / 10.2 (RF002) — CPF com formato inválido
   if (!isValidCpfFormat(cpf) || !isValidCpf(cpf)) {
-    return res
-      .status(400)
-      .json({ message: "CPF inválido! Use o formato: 000.000.000-00" });
+    return { erro: "CPF inválido! Use o formato: 000.000.000-00" };
   }
 
-  if (!isValidDate(dataNascimento)) {
-    return res.status(400).json({ message: "Data de nascimento inválida!" });
+  // RG: apenas números, ponto e traço, com "X" opcional no final (ex.: SP)
+  const rgSemPontuacao = rg.trim().replace(/[.-]/g, "");
+  if (!/^\d[\d.-]*[\dX]$/i.test(rg.trim()) || !/^\d{4,13}[\dX]$/i.test(rgSemPontuacao)) {
+    return { erro: "RG inválido! Use apenas números (ex.: 00.000.000-0)" };
+  }
+
+  if (!isValidDate(dataNascimento) || new Date(dataNascimento) > new Date()) {
+    return { erro: "Data de nascimento inválida!" };
+  }
+
+  if (telefonesPreenchidos.some((t) => t.length < 10 || t.length > 11)) {
+    return { erro: "Telefone inválido! Use o formato: (00) 00000-0000" };
+  }
+
+  const cep = somenteDigitos(endereco.cep);
+  if (cep.length !== 8) {
+    return { erro: "CEP inválido! Use o formato: 00000-000" };
+  }
+
+  const uf = String(endereco.uf).trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(uf)) {
+    return { erro: "UF inválida!" };
+  }
+
+  return {
+    dados: {
+      cpf: somenteDigitos(cpf),
+      nome: nome.trim(),
+      rg: rg.trim().toUpperCase(),
+      dataNascimento,
+      // remove telefones repetidos (a chave da tabela é telefone + cpf)
+      telefones: [...new Set(telefonesPreenchidos)],
+      endereco: {
+        logradouro: endereco.logradouro.trim(),
+        numEndereco: endereco.numEndereco.trim(),
+        bairro: endereco.bairro.trim(),
+        cep,
+        cidade: endereco.cidade.trim(),
+        uf,
+      },
+    },
+  };
+}
+
+// Busca o cliente ativo pelo CPF da URL (aceita com ou sem máscara).
+async function buscarClienteAtivo(cpfParam: string) {
+  const cpf = somenteDigitos(cpfParam);
+  if (!isValidCpf(cpf)) return { cpf, cliente: null, cpfInvalido: true };
+
+  const cliente = await findClienteByCpf(cpf);
+  return {
+    cpf,
+    cliente: cliente && cliente.status === "ativo" ? cliente : null,
+    cpfInvalido: false,
+  };
+}
+
+// [RF001] Cadastrar Cliente
+export async function cadastrarCliente(req: Request, res: Response) {
+  const resultado = validarCliente(req.body);
+  if ("erro" in resultado) {
+    return res.status(400).json({ message: resultado.erro });
   }
 
   try {
-    // Exceção 8.3 — cliente já cadastrado
-    const cpfDigits = cpf.replace(/\D/g, "");
-    const existente = await findClienteByCpf(cpfDigits);
+    // Exceção 8.3 — cliente já cadastrado (mesmo CPF, ativo ou inativo)
+    const existente = await findClienteByCpf(resultado.dados.cpf);
     if (existente) {
       return res
         .status(409)
         .json({ message: "Existe um cliente cadastrado com esses dados!" });
     }
 
-    const cliente = await createCliente({
-      cpf: cpfDigits,
-      nome,
-      rg,
-      dataNascimento,
-      telefones: telefones.map((t: string) => t.replace(/\D/g, "")),
-      endereco,
-    });
+    const cliente = await createCliente(resultado.dados);
 
     return res.status(201).json({
       message: "Operação realizada com sucesso!",
@@ -72,32 +129,8 @@ export async function cadastrarCliente(req: Request, res: Response) {
   }
 }
 
-// [RF002] Buscar Cliente por CPF
-export async function buscarCliente(req: Request, res: Response) {
-  const cpfDigits = req.params.cpf.replace(/\D/g, "");
-
-  if (!isValidCpfFormat(req.params.cpf) || !isValidCpf(cpfDigits)) {
-    return res
-      .status(400)
-      .json({ message: "CPF inválido! Use o formato: 000.000.000-00" });
-  }
-
-  try {
-    const cliente = await findClienteByCpf(cpfDigits);
-
-    if (!cliente) {
-      return res.status(404).json({ message: "Cliente não encontrado." });
-    }
-
-    return res.status(200).json(cliente);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Erro interno do servidor." });
-  }
-}
-
-// [RF003] Buscar todos os clientes
-export async function buscarClientes(req: Request, res: Response) {
+// [RF004] Consultar Cliente — listagem
+export async function buscarClientes(_req: Request, res: Response) {
   try {
     const clientes = await findAllClientes();
     return res.status(200).json(clientes);
@@ -107,58 +140,44 @@ export async function buscarClientes(req: Request, res: Response) {
   }
 }
 
+// [RF004] Consultar Cliente — detalhes por CPF
+export async function buscarCliente(req: Request, res: Response) {
+  try {
+    const { cliente, cpfInvalido } = await buscarClienteAtivo(req.params.cpf);
 
+    if (cpfInvalido) {
+      return res
+        .status(400)
+        .json({ message: "CPF inválido! Use o formato: 000.000.000-00" });
+    }
+    if (!cliente) {
+      return res.status(404).json({ message: "Nenhum resultado encontrado!" });
+    }
 
-
+    return res.status(200).json(cliente);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro interno do servidor." });
+  }
+}
 
 // [RF002] Atualizar Cliente
 export async function atualizarCliente(req: Request, res: Response) {
-  const cpfAtual = req.params.cpf.replace(/\D/g, "");
-  const { nome, cpf, rg, dataNascimento, telefones, endereco } = req.body;
-
-  // Exceção 10.1 — campos obrigatórios apagados ou não preenchidos
-  if (
-    !nome ||
-    !cpf ||
-    !rg ||
-    !dataNascimento ||
-    !Array.isArray(telefones) ||
-    telefones.length === 0 ||
-    !endereco ||
-    !endereco.logradouro ||
-    !endereco.numEndereco ||
-    !endereco.bairro ||
-    !endereco.cep ||
-    !endereco.cidade ||
-    !endereco.uf
-  ) {
-    return res
-      .status(400)
-      .json({ message: "Preencha todos os campos obrigatórios!" });
+  const resultado = validarCliente(req.body);
+  if ("erro" in resultado) {
+    return res.status(400).json({ message: resultado.erro });
   }
-
-  // Exceção 10.2 — CPF alterado para um formato inválido
-  if (!isValidCpfFormat(cpf) || !isValidCpf(cpf)) {
-    return res
-      .status(400)
-      .json({ message: "CPF inválido! Use o formato: 000.000.000-00" });
-  }
-
-  if (!isValidDate(dataNascimento)) {
-    return res.status(400).json({ message: "Data de nascimento inválida!" });
-  }
+  const dados = resultado.dados;
 
   try {
-    const novoCpf = cpf.replace(/\D/g, "");
-
-    const clienteAtual = await findClienteByCpf(cpfAtual);
-    if (!clienteAtual) {
+    const { cpf: cpfAtual, cliente } = await buscarClienteAtivo(req.params.cpf);
+    if (!cliente) {
       return res.status(404).json({ message: "Cliente não encontrado!" });
     }
 
     // Exceção 10.3 — CPF alterado para um que já pertence a outro cliente
-    if (novoCpf !== cpfAtual) {
-      const outroCliente = await findClienteByCpf(novoCpf);
+    if (dados.cpf !== cpfAtual) {
+      const outroCliente = await findClienteByCpf(dados.cpf);
       if (outroCliente) {
         return res
           .status(409)
@@ -166,19 +185,29 @@ export async function atualizarCliente(req: Request, res: Response) {
       }
     }
 
-    const cliente = await updateCliente(cpfAtual, {
-      cpf: novoCpf,
-      nome,
-      rg,
-      dataNascimento,
-      telefones: telefones.map((t: string) => t.replace(/\D/g, "")),
-      endereco,
-    });
+    const clienteAtualizado = await updateCliente(cpfAtual, dados);
 
     return res.status(200).json({
       message: "Operação realizada com sucesso!",
-      cliente,
+      cliente: clienteAtualizado,
     });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Erro interno do servidor." });
+  }
+}
+
+// [RF003] Deletar Cliente — marca o cliente como inativo
+export async function deletarCliente(req: Request, res: Response) {
+  try {
+    const { cpf, cliente } = await buscarClienteAtivo(req.params.cpf);
+    if (!cliente) {
+      return res.status(404).json({ message: "Cliente não encontrado!" });
+    }
+
+    await desativarCliente(cpf);
+
+    return res.status(200).json({ message: "Cliente deletado com sucesso!" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Erro interno do servidor." });
