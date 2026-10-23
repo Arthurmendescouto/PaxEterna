@@ -3,7 +3,8 @@ import * as produtoModel from "../models/produtoModel";
 
 export const cadastrarProduto = async (req: Request, res: Response) => {
   try {
-    const { nome, tipo, valor, quantidade, unidade_medida } = req.body;
+    const { nome, tipo, valor, quantidade, marca, descricao, fornecedor, unidade_medida } =
+      req.body;
 
     if (!nome || !tipo || valor === undefined || quantidade === undefined) {
       return res
@@ -29,6 +30,9 @@ export const cadastrarProduto = async (req: Request, res: Response) => {
       tipo,
       valor,
       quantidade,
+      marca,
+      descricao,
+      fornecedor,
       unidade_medida: unidade_medida || "unidade",
     });
 
@@ -47,7 +51,8 @@ export const cadastrarProduto = async (req: Request, res: Response) => {
 export const atualizarProduto = async (req: Request, res: Response) => {
   try {
     const { id_produto } = req.params;
-    const { nome, tipo, valor, quantidade, unidade_medida } = req.body;
+    const { nome, tipo, valor, quantidade, marca, descricao, fornecedor, unidade_medida } =
+      req.body;
 
     // Verificar se o produto existe no banco
     const produtoExistente = await produtoModel.buscarProdutoPorId(
@@ -82,6 +87,9 @@ export const atualizarProduto = async (req: Request, res: Response) => {
         tipo,
         valor,
         quantidade,
+        marca,
+        descricao,
+        fornecedor,
         unidade_medida: unidade_medida || produtoExistente.unidade_medida,
       },
     );
@@ -92,6 +100,66 @@ export const atualizarProduto = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Erro ao atualizar produto:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro de conexão. Tente novamente mais tarde." });
+  }
+};
+
+export const buscarProduto = async (req: Request, res: Response) => {
+  try {
+    const { id_produto } = req.params;
+
+    const produto = await produtoModel.buscarProdutoPorId(Number(id_produto));
+
+    if (!produto) {
+      return res.status(404).json({ error: "Produto não encontrado." });
+    }
+
+    return res.status(200).json(produto);
+  } catch (error) {
+    console.error("Erro ao buscar produto:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro de conexão. Tente novamente mais tarde." });
+  }
+};
+
+export const buscarProdutos = async (req: Request, res: Response) => {
+  try {
+    const produtos = await produtoModel.buscarTodosProdutos();
+    return res.status(200).json(produtos);
+  } catch (error) {
+    console.error("Erro ao buscar produtos:", error);
+    return res
+      .status(500)
+      .json({ error: "Erro de conexão. Tente novamente mais tarde." });
+  }
+};
+
+export const removerProduto = async (req: Request, res: Response) => {
+  try {
+    const { id_produto } = req.params;
+
+    const produtoExistente = await produtoModel.buscarProdutoPorId(
+      Number(id_produto),
+    );
+
+    if (!produtoExistente) {
+      return res.status(404).json({ error: "Produto não encontrado." });
+    }
+
+    const removido = await produtoModel.removerProduto(Number(id_produto));
+
+    if (!removido) {
+      return res.status(500).json({ error: "Erro ao remover produto." });
+    }
+
+    return res.status(200).json({
+      message: "Produto removido com sucesso!",
+    });
+  } catch (error) {
+    console.error("Erro ao remover produto:", error);
     return res
       .status(500)
       .json({ error: "Erro de conexão. Tente novamente mais tarde." });
