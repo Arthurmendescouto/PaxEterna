@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import CadastroProdutoModal from '../../components/produtos/CadastroProdutoModal'
+import ProdutoModal from '../../components/produtos/ProdutoModal'
 import type { Produto } from '../../types/produto'
 import {
   atualizarProduto as atualizarProdutoApi,
@@ -331,63 +332,11 @@ export default function Produtos({ onVoltar }: ProdutosProps) {
         )}
       </main>
 
-      {/* MODAL DE CONSULTA */}
       {produtoSelecionado && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Consultar Produto</h2>
-                <p className="text-sm text-gray-500">Detalhes do produto</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setProdutoSelecionado(null)}
-                className="cursor-pointer rounded-md px-2 py-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Fechar"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="grid gap-4 px-6 py-6 sm:grid-cols-2">
-              {[
-                ['ID', String(produtoSelecionado.id)],
-                ['Nome', produtoSelecionado.nome],
-                ['Tipo', produtoSelecionado.tipo],
-                ['Valor', formatarValor(produtoSelecionado.valor)],
-                ['Quantidade', String(produtoSelecionado.quantidade)],
-                ['Marca', produtoSelecionado.marca],
-                ['Fornecedor', produtoSelecionado.fornecedor],
-              ].map(([label, valor]) => (
-                <div key={label}>
-                  <p className="text-xs font-medium text-gray-500">{label}</p>
-                  <p className="mt-1 text-sm text-gray-900">{valor || '—'}</p>
-                </div>
-              ))}
-              <div className="sm:col-span-2">
-                <p className="text-xs font-medium text-gray-500">Descrição</p>
-                <p className="mt-1 whitespace-pre-line text-sm text-gray-900">
-                  {produtoSelecionado.descricao || '—'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end px-6 py-4">
-              <button
-                type="button"
-                onClick={() => setProdutoSelecionado(null)}
-                className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProdutoModal
+          produto={produtoSelecionado}
+          onClose={() => setProdutoSelecionado(null)}
+        />
       )}
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
