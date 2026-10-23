@@ -27,12 +27,24 @@ function normalizarProduto(produto: ProdutoBackend): Produto {
   }
 }
 
+// Lê a mensagem de erro enviada pelo backend ({ error } ou { message }).
 async function tratarErro(resposta: Response, mensagemPadrao: string): Promise<never> {
+  let mensagem = mensagemPadrao
   try {
     const corpo = await resposta.json()
-    throw new Error(corpo.error ?? mensagemPadrao)
+    mensagem = corpo.error ?? corpo.message ?? mensagemPadrao
   } catch {
-    throw new Error(mensagemPadrao)
+    // resposta sem JSON: mantém a mensagem padrão
+  }
+  throw new Error(mensagem)
+}
+
+// RF016 exceção 8.2: falha de conexão
+async function requisitar(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch {
+    throw new Error('Erro de conexão. Tente novamente mais tarde.')
   }
 }
 
@@ -40,7 +52,7 @@ async function tratarErro(resposta: Response, mensagemPadrao: string): Promise<n
  * Busca todos os produtos cadastrados.
  */
 export async function listarProdutos(): Promise<Produto[]> {
-  const resposta = await fetch(`${API_URL}/produtos`)
+  const resposta = await requisitar(`${API_URL}/produtos`)
 
   if (!resposta.ok) {
     return tratarErro(resposta, 'Não foi possível carregar os produtos.')
@@ -54,7 +66,7 @@ export async function listarProdutos(): Promise<Produto[]> {
  * Busca um produto pelo ID.
  */
 export async function buscarProduto(id: number): Promise<Produto> {
-  const resposta = await fetch(`${API_URL}/produtos/${id}`)
+  const resposta = await requisitar(`${API_URL}/produtos/${id}`)
 
   if (!resposta.ok) {
     return tratarErro(resposta, 'Não foi possível consultar o produto.')
@@ -69,7 +81,7 @@ export async function buscarProduto(id: number): Promise<Produto> {
 export async function cadastrarProduto(
   produto: Omit<Produto, 'id'>
 ): Promise<Produto> {
-  const resposta = await fetch(`${API_URL}/produtos`, {
+  const resposta = await requisitar(`${API_URL}/produtos`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -92,7 +104,7 @@ export async function atualizarProduto(
   id: number,
   produto: Omit<Produto, 'id'>
 ): Promise<Produto> {
-  const resposta = await fetch(`${API_URL}/produtos/${id}`, {
+  const resposta = await requisitar(`${API_URL}/produtos/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -112,7 +124,7 @@ export async function atualizarProduto(
  * Exclui um produto.
  */
 export async function excluirProduto(id: number): Promise<void> {
-  const resposta = await fetch(`${API_URL}/produtos/${id}`, {
+  const resposta = await requisitar(`${API_URL}/produtos/${id}`, {
     method: 'DELETE',
   })
 

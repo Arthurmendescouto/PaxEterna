@@ -1,20 +1,36 @@
 import { Request, Response } from "express";
 import * as produtoModel from "../models/produtoModel";
 
+// Valor: número >= 0 (RF013 8.3 / RF014 9.2)
+const valorValido = (valor: unknown) =>
+  valor !== "" && valor !== null && Number.isFinite(Number(valor)) && Number(valor) >= 0;
+
+// Quantidade: inteiro >= 0 (RF014 9.3)
+const quantidadeValida = (quantidade: unknown) =>
+  quantidade !== "" && quantidade !== null &&
+  Number.isInteger(Number(quantidade)) && Number(quantidade) >= 0;
+
+const preenchido = (texto: unknown) => typeof texto === "string" && texto.trim() !== "";
+
 export const cadastrarProduto = async (req: Request, res: Response) => {
   try {
     const { nome, tipo, valor, quantidade, marca, descricao, fornecedor, unidade_medida } =
       req.body;
 
-    if (!nome || !tipo || valor === undefined || quantidade === undefined) {
+    if (!preenchido(nome) || !preenchido(tipo) || valor === undefined || quantidade === undefined) {
       return res
         .status(400)
         .json({ error: "Preencha todos os campos obrigatórios!" });
     }
 
-    // Exceção: Valor com formato inválido (negativo)
-    if (valor < 0) {
+    // Exceção: Valor com formato inválido ou negativo
+    if (!valorValido(valor)) {
       return res.status(400).json({ error: "Valor inválido!" });
+    }
+
+    // Exceção: Quantidade com formato inválido ou negativa
+    if (!quantidadeValida(quantidade)) {
+      return res.status(400).json({ error: "Quantidade inválida!" });
     }
 
     // Exceção: Produto com o mesmo nome já existe
@@ -63,19 +79,19 @@ export const atualizarProduto = async (req: Request, res: Response) => {
     }
 
     // Exceção: Campos obrigatórios apagados ou não preenchidos
-    if (!nome || !tipo || valor === undefined || quantidade === undefined) {
+    if (!preenchido(nome) || !preenchido(tipo) || valor === undefined || quantidade === undefined) {
       return res
         .status(400)
         .json({ error: "Preencha todos os campos obrigatórios!" });
     }
 
-    // Exceção: Valor com formato inválido (negativo)
-    if (valor < 0) {
+    // Exceção: Valor com formato inválido ou negativo
+    if (!valorValido(valor)) {
       return res.status(400).json({ error: "Valor inválido!" });
     }
 
-    // Exceção: Quantidade com formato inválido (negativa)
-    if (quantidade < 0) {
+    // Exceção: Quantidade com formato inválido ou negativa
+    if (!quantidadeValida(quantidade)) {
       return res.status(400).json({ error: "Quantidade inválida!" });
     }
 
@@ -149,6 +165,13 @@ export const removerProduto = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Produto não encontrado." });
     }
 
+    // RF015 exceção 8.4: não remove produto que ainda tem unidades em estoque
+    if (Number(produtoExistente.quantidade) > 0) {
+      return res.status(409).json({
+        error: "Não é possível excluir: este produto ainda possui unidades em estoque!",
+      });
+    }
+
     const removido = await produtoModel.removerProduto(Number(id_produto));
 
     if (!removido) {
@@ -156,7 +179,7 @@ export const removerProduto = async (req: Request, res: Response) => {
     }
 
     return res.status(200).json({
-      message: "Produto removido com sucesso!",
+      message: "Produto excluído com sucesso!",
     });
   } catch (error) {
     console.error("Erro ao remover produto:", error);
