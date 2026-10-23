@@ -16,18 +16,16 @@ const somenteDigitos = (valor: string) => String(valor ?? "").replace(/\D/g, "")
 function validarCliente(
   body: any
 ): { erro: string } | { dados: Cliente } {
-  const { nome, cpf, rg, dataNascimento, telefones, endereco } = body ?? {};
+  const { nome, cpf, dataNascimento, telefone, email, endereco } = body ?? {};
 
-  // Exceção 8.1 (RF001) / 10.1 (RF002) — campos obrigatórios
-  const telefonesPreenchidos = Array.isArray(telefones)
-    ? telefones.map(somenteDigitos).filter(Boolean)
-    : [];
+  // Exceção 8.1 (RF001) / 10.1 (RF002) — campos obrigatórios:
+  // Nome, CPF, Telefone, Endereço, Cidade e UF.
+  // Data de nascimento e Email são opcionais.
+  const telefoneDigitos = somenteDigitos(telefone);
   if (
     !nome?.trim() ||
     !cpf ||
-    !rg?.trim() ||
-    !dataNascimento ||
-    telefonesPreenchidos.length === 0 ||
+    !telefoneDigitos ||
     !endereco ||
     !endereco.logradouro?.trim() ||
     !endereco.numEndereco?.trim() ||
@@ -44,18 +42,20 @@ function validarCliente(
     return { erro: "CPF inválido! Use o formato: 000.000.000-00" };
   }
 
-  // RG: apenas números, ponto e traço, com "X" opcional no final (ex.: SP)
-  const rgSemPontuacao = rg.trim().replace(/[.-]/g, "");
-  if (!/^\d[\d.-]*[\dX]$/i.test(rg.trim()) || !/^\d{4,13}[\dX]$/i.test(rgSemPontuacao)) {
-    return { erro: "RG inválido! Use apenas números (ex.: 00.000.000-0)" };
-  }
-
-  if (!isValidDate(dataNascimento) || new Date(dataNascimento) > new Date()) {
+  if (
+    dataNascimento &&
+    (!isValidDate(dataNascimento) || new Date(dataNascimento) > new Date())
+  ) {
     return { erro: "Data de nascimento inválida!" };
   }
 
-  if (telefonesPreenchidos.some((t) => t.length < 10 || t.length > 11)) {
+  if (telefoneDigitos.length < 10 || telefoneDigitos.length > 11) {
     return { erro: "Telefone inválido! Use o formato: (00) 00000-0000" };
+  }
+
+  const emailLimpo = String(email ?? "").trim();
+  if (emailLimpo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)) {
+    return { erro: "Email inválido!" };
   }
 
   const cep = somenteDigitos(endereco.cep);
@@ -72,10 +72,9 @@ function validarCliente(
     dados: {
       cpf: somenteDigitos(cpf),
       nome: nome.trim(),
-      rg: rg.trim().toUpperCase(),
-      dataNascimento,
-      // remove telefones repetidos (a chave da tabela é telefone + cpf)
-      telefones: [...new Set(telefonesPreenchidos)],
+      dataNascimento: dataNascimento || null,
+      telefone: telefoneDigitos,
+      email: emailLimpo || null,
       endereco: {
         logradouro: endereco.logradouro.trim(),
         numEndereco: endereco.numEndereco.trim(),

@@ -7,18 +7,23 @@ export interface Endereco {
   uf: string
 }
 
-// Formato retornado pelo backend (CPF, telefones e CEP somente com dígitos,
-// data de nascimento em YYYY-MM-DD).
+// Formato retornado pelo backend (CPF, telefone e CEP somente com dígitos,
+// datas em YYYY-MM-DD).
 export interface Cliente {
   cpf: string
   nome: string
-  rg: string
-  dataNascimento: string
-  telefones: string[]
+  dataNascimento: string | null
+  telefone: string
+  email: string | null
   endereco: Endereco
-  status: string
   possuiContrato: boolean
+  dataCriacao: string
+  status: string
 }
 
 // Dados enviados no cadastro/atualização (CPF no formato 000.000.000-00).
-export type ClienteFormulario = Omit<Cliente, 'status' | 'possuiContrato'>
+// "Possui contrato" e "Data de criação" vêm do banco, não do formulário.
+export type ClienteFormulario = Omit<
+  Cliente,
+  'possuiContrato' | 'dataCriacao' | 'status'
+>

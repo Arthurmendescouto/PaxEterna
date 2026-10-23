@@ -26,7 +26,6 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
   const enderecoCompleto = [
     `${endereco.logradouro}, ${endereco.numEndereco}`,
     endereco.bairro,
-    `${endereco.cidade}/${endereco.uf}`,
     `CEP ${formatarCep(endereco.cep)}`,
   ].join(' - ')
 
@@ -55,16 +54,19 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
           </button>
         </div>
 
-        {/* Dados do cliente */}
+        {/* Dados do cliente, na ordem do RF004 */}
         <div className="grid grid-cols-1 gap-5 px-6 py-6 sm:grid-cols-2">
           <Info label="Nome" valor={cliente.nome} />
           <Info label="CPF" valor={formatarCpf(cliente.cpf)} />
-          <Info label="RG" valor={cliente.rg} />
-          <Info label="Data de Nascimento" valor={formatarData(cliente.dataNascimento)} />
           <Info
-            label="Telefone(s)"
-            valor={cliente.telefones.map(formatarTelefone).join(', ')}
+            label="Data de Nascimento"
+            valor={cliente.dataNascimento ? formatarData(cliente.dataNascimento) : ''}
           />
+          <Info label="Telefone" valor={formatarTelefone(cliente.telefone)} />
+          <Info label="Email" valor={cliente.email ?? ''} largo />
+          <Info label="Endereço" valor={enderecoCompleto} largo />
+          <Info label="Cidade" valor={endereco.cidade} />
+          <Info label="UF" valor={endereco.uf} />
           <Info
             label="Possui contrato"
             valor={
@@ -79,7 +81,7 @@ function ClienteModal({ cliente, onClose }: ClienteModalProps) {
               </span>
             }
           />
-          <Info label="Endereço" valor={enderecoCompleto} largo />
+          <Info label="Data de criação" valor={formatarData(cliente.dataCriacao)} />
         </div>
 
         {/* Rodapé */}

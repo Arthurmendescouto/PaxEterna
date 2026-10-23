@@ -1,16 +1,13 @@
 import { useState } from 'react'
 
 import CloseIcon from '@mui/icons-material/Close'
-import AddIcon from '@mui/icons-material/Add'
-import DeleteIcon from '@mui/icons-material/Delete'
 
 import type { Cliente, ClienteFormulario } from '../../types/cliente'
 import {
   formatarCep,
   formatarCpf,
-  formatarRg,
+  formatarData,
   formatarTelefone,
-  rgValido,
   somenteDigitos,
 } from '../../utils/formatadores'
 
@@ -24,9 +21,9 @@ interface CadastroClienteModalProps {
 interface Formulario {
   nome: string
   cpf: string
-  rg: string
   dataNascimento: string
-  telefones: string[]
+  telefone: string
+  email: string
   logradouro: string
   numEndereco: string
   bairro: string
@@ -35,19 +32,24 @@ interface Formulario {
   uf: string
 }
 
-type CampoTexto = Exclude<keyof Formulario, 'telefones'>
+type Campo = keyof Formulario
 
 const UFS = [
   'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA',
   'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO',
 ]
 
+// RF001: obrigatórios = Nome, CPF, Telefone, Endereço, Cidade e UF.
+const OBRIGATORIOS: Campo[] = [
+  'nome', 'cpf', 'telefone', 'logradouro', 'numEndereco', 'bairro', 'cep', 'cidade', 'uf',
+]
+
 const formularioInicial: Formulario = {
   nome: '',
   cpf: '',
-  rg: '',
   dataNascimento: '',
-  telefones: [''],
+  telefone: '',
+  email: '',
   logradouro: '',
   numEndereco: '',
   bairro: '',
@@ -59,11 +61,9 @@ const formularioInicial: Formulario = {
 const paraFormulario = (cliente: Cliente): Formulario => ({
   nome: cliente.nome,
   cpf: formatarCpf(cliente.cpf),
-  rg: cliente.rg,
-  dataNascimento: cliente.dataNascimento,
-  telefones: cliente.telefones.length
-    ? cliente.telefones.map(formatarTelefone)
-    : [''],
+  dataNascimento: cliente.dataNascimento ?? '',
+  telefone: formatarTelefone(cliente.telefone),
+  email: cliente.email ?? '',
   logradouro: cliente.endereco.logradouro,
   numEndereco: cliente.endereco.numEndereco,
   bairro: cliente.endereco.bairro,
@@ -72,31 +72,25 @@ const paraFormulario = (cliente: Cliente): Formulario => ({
   uf: cliente.endereco.uf,
 })
 
-const mascaras: Partial<Record<CampoTexto, (valor: string) => string>> = {
+const mascaras: Partial<Record<Campo, (valor: string) => string>> = {
   cpf: formatarCpf,
-  rg: formatarRg,
+  telefone: formatarTelefone,
   cep: formatarCep,
 }
 
 // Validações feitas antes de enviar (o backend repete as mesmas regras).
 function validar(formulario: Formulario): string {
-  const telefones = formulario.telefones.map(somenteDigitos).filter(Boolean)
-  const obrigatorios: CampoTexto[] = [
-    'nome', 'cpf', 'rg', 'dataNascimento', 'logradouro',
-    'numEndereco', 'bairro', 'cep', 'cidade', 'uf',
-  ]
-
-  if (obrigatorios.some((campo) => !formulario[campo].trim()) || telefones.length === 0) {
+  if (OBRIGATORIOS.some((campo) => !formulario[campo].trim())) {
     return 'Preencha todos os campos obrigatórios!'
   }
   if (!/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formulario.cpf)) {
     return 'CPF inválido! Use o formato: 000.000.000-00'
   }
-  if (!rgValido(formulario.rg)) {
-    return 'RG inválido! Use apenas números (ex.: 00.000.000-0)'
-  }
-  if (telefones.some((t) => t.length < 10)) {
+  if (somenteDigitos(formulario.telefone).length < 10) {
     return 'Telefone inválido! Use o formato: (00) 00000-0000'
+  }
+  if (formulario.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formulario.email.trim())) {
+    return 'Email inválido!'
   }
   if (somenteDigitos(formulario.cep).length !== 8) {
     return 'CEP inválido! Use o formato: 00000-000'
@@ -115,34 +109,13 @@ function CadastroClienteModal({
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
 
-  const handleChange = (campo: CampoTexto, valor: string) => {
+  const handleChange = (campo: Campo, valor: string) => {
     const mascara = mascaras[campo]
     setFormulario((atual) => ({
       ...atual,
       [campo]: mascara ? mascara(valor) : valor,
     }))
     setErro('')
-  }
-
-  const handleTelefoneChange = (indice: number, valor: string) => {
-    setFormulario((atual) => ({
-      ...atual,
-      telefones: atual.telefones.map((telefone, i) =>
-        i === indice ? formatarTelefone(valor) : telefone
-      ),
-    }))
-    setErro('')
-  }
-
-  const adicionarTelefone = () => {
-    setFormulario((atual) => ({ ...atual, telefones: [...atual.telefones, ''] }))
-  }
-
-  const removerTelefone = (indice: number) => {
-    setFormulario((atual) => ({
-      ...atual,
-      telefones: atual.telefones.filter((_, i) => i !== indice),
-    }))
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -159,9 +132,9 @@ function CadastroClienteModal({
       await onSave({
         nome: formulario.nome.trim(),
         cpf: formulario.cpf,
-        rg: formulario.rg.trim(),
-        dataNascimento: formulario.dataNascimento,
-        telefones: formulario.telefones.map(somenteDigitos).filter(Boolean),
+        dataNascimento: formulario.dataNascimento || null,
+        telefone: somenteDigitos(formulario.telefone),
+        email: formulario.email.trim() || null,
         endereco: {
           logradouro: formulario.logradouro.trim(),
           numEndereco: formulario.numEndereco.trim(),
@@ -185,21 +158,21 @@ function CadastroClienteModal({
   const classeInput =
     'rounded-md border border-gray-300 bg-white px-3 py-2.5 outline-none transition placeholder:text-gray-400 focus:border-blue-600 focus:ring-2 focus:ring-blue-100'
 
-  const rotulo = (label: string) => (
+  const rotulo = (label: string, obrigatorio: boolean) => (
     <span className="font-medium">
       {label}
-      <span className="text-red-500"> *</span>
+      {obrigatorio && <span className="text-red-500"> *</span>}
     </span>
   )
 
   const campo = (
-    nome: CampoTexto,
+    nome: Campo,
     label: string,
     tipo = 'text',
     placeholder = ''
   ) => (
     <label className="flex flex-col gap-1.5 text-sm text-gray-700">
-      {rotulo(label)}
+      {rotulo(label, OBRIGATORIOS.includes(nome))}
       <input
         type={tipo}
         value={formulario[nome]}
@@ -209,6 +182,16 @@ function CadastroClienteModal({
         className={classeInput}
       />
     </label>
+  )
+
+  // Campos exibidos pelo RF, mas preenchidos pelo próprio sistema.
+  const somenteLeitura = (label: string, valor: string) => (
+    <div className="flex flex-col gap-1.5 text-sm text-gray-700">
+      <span className="font-medium">{label}</span>
+      <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-gray-600">
+        {valor}
+      </p>
+    </div>
   )
 
   return (
@@ -229,7 +212,7 @@ function CadastroClienteModal({
               id="cadastro-cliente-titulo"
               className="text-xl font-bold text-gray-900"
             >
-              {cliente ? 'Editar cliente' : 'Cadastrar cliente'}
+              {cliente ? 'Atualizar cliente' : 'Cadastrar cliente'}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
               {cliente
@@ -255,54 +238,20 @@ function CadastroClienteModal({
             </h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                {campo('nome', 'Nome completo', 'text', 'Digite o nome completo')}
+                {campo('nome', 'Nome', 'text', 'Digite o nome completo')}
               </div>
               {campo('cpf', 'CPF', 'text', '000.000.000-00')}
-              {campo('rg', 'RG', 'text', '00.000.000-0')}
-              {campo('dataNascimento', 'Data de nascimento', 'date')}
+              {campo('dataNascimento', 'Data de Nascimento', 'date')}
             </div>
           </section>
 
           <section>
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#2d5082]">
-              Telefones
+              Contato
             </h3>
-            <div className="space-y-3">
-              {formulario.telefones.map((telefone, indice) => (
-                <div key={indice} className="flex items-end gap-2">
-                  <label className="flex flex-1 flex-col gap-1.5 text-sm text-gray-700">
-                    {indice === 0 ? rotulo('Telefone') : (
-                      <span className="font-medium">Telefone {indice + 1}</span>
-                    )}
-                    <input
-                      type="tel"
-                      value={telefone}
-                      onChange={(event) => handleTelefoneChange(indice, event.target.value)}
-                      placeholder="(00) 00000-0000"
-                      className={classeInput}
-                    />
-                  </label>
-                  {formulario.telefones.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removerTelefone(indice)}
-                      title="Remover telefone"
-                      aria-label={`Remover telefone ${indice + 1}`}
-                      className="cursor-pointer rounded-md p-2.5 text-red-500 transition hover:bg-red-50"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={adicionarTelefone}
-                className="flex cursor-pointer items-center gap-1 text-sm font-medium text-[#2d5082] hover:underline"
-              >
-                <AddIcon fontSize="small" />
-                Adicionar telefone
-              </button>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {campo('telefone', 'Telefone', 'tel', '(00) 00000-0000')}
+              {campo('email', 'Email', 'email', 'nome@exemplo.com')}
             </div>
           </section>
 
@@ -325,7 +274,7 @@ function CadastroClienteModal({
                 {campo('cidade', 'Cidade')}
               </div>
               <label className="flex flex-col gap-1.5 text-sm text-gray-700">
-                {rotulo('UF')}
+                {rotulo('UF', true)}
                 <select
                   value={formulario.uf}
                   onChange={(event) => handleChange('uf', event.target.value)}
@@ -337,6 +286,22 @@ function CadastroClienteModal({
                   ))}
                 </select>
               </label>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[#2d5082]">
+              Informações do sistema
+            </h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {somenteLeitura(
+                'Possui contrato',
+                cliente?.possuiContrato ? 'Sim' : 'Não'
+              )}
+              {somenteLeitura(
+                'Data de criação',
+                cliente ? formatarData(cliente.dataCriacao) : 'Gerada ao cadastrar'
+              )}
             </div>
           </section>
 
