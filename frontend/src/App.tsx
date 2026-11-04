@@ -3,6 +3,7 @@ import './App.css'
 import Dashboard from './pages/dashboard/Dashboard.tsx'
 import Clientes from './pages/clientes/Clientes.tsx'
 import Produtos from './pages/produtos/Produtos.tsx'
+import Compras from './pages/compras/Compras.tsx'
 import type { Tela } from './types/navegacao.ts'
 
 export default function App() {
@@ -18,6 +19,8 @@ const [tela,setTela] = useState<Tela>('dashboard')
       return <Clientes onVoltar={voltar} />
     case 'produtos':
       return <Produtos onVoltar={voltar} />
+    case 'compra':
+      return <Compras onVoltar={voltar} />
     case 'dashboard':
     default:
       return <Dashboard onNavegar={irPara} />

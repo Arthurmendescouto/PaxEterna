@@ -26,6 +26,10 @@ export function formatarCep(valor: string) {
   return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
 }
 
+// 1500 -> R$ 1.500,00
+export const formatarValor = (valor: number) =>
+  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
 // 1990-02-14 -> 14/02/1990
 export function formatarData(data: string) {
   const [ano, mes, dia] = data.split('-')
