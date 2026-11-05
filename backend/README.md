@@ -75,3 +75,27 @@ Envie o `POST` com cada variação abaixo e confirme `400 Bad Request`:
 - Envie `endereco` como texto ou lista, em vez de objeto.
 
 Os campos obrigatórios são `nome`, `cpf`, `rg`, `dataNascimento`, ao menos um telefone textual e os campos de endereço `logradouro`, `numEndereco`, `bairro`, `cep`, `cidade` e `uf`.
+
+## Consultar compras
+
+A API disponibiliza `GET /api/compras` para listar os registros da tabela `Compra`. Com o servidor na porta padrão, use `http://localhost:3001/api/compras`; se a variável `PORT` estiver configurada, substitua `3001` pela porta configurada.
+
+No Insomnia, crie uma requisição **GET** para essa URL e envie. Não é necessário corpo nem autenticação. Em caso de sucesso, a resposta é `200 OK` com um array JSON; sem compras cadastradas, o resultado é `[]`. Cada item contém:
+
+```json
+{
+  "id_compra": 1,
+  "fk_Cliente_cpf": "52998224725",
+  "data_compra": "2026-10-25",
+  "valor_total": "150.00"
+}
+```
+
+`valor_total` é retornado como texto decimal para preservar a precisão do valor armazenado no MySQL. Os registros vêm ordenados do ID mais recente para o mais antigo. Se ocorrer falha na consulta ao banco, a API responde `500` com uma mensagem de erro.
+
+Para testar:
+
+1. Inicie o MySQL e aplique as migrations conforme as instruções acima; a tabela `Compra` deve existir e ter registros para que a resposta contenha itens.
+2. Inicie a API com `npm run dev`.
+3. No Insomnia, envie `GET http://localhost:3001/api/compras` (ou use a porta definida em `PORT`).
+4. Confirme `200 OK`, verifique os campos dos registros e compare-os com a tabela `Compra`. Uma tabela vazia deve retornar `200 OK` e `[]`.
