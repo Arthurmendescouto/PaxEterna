@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import CadastroCompraModal from '../../components/compras/CadastroCompraModal'
 import type { Compra, CompraFormulario, ItemDisponivel } from '../../types/compra'
@@ -6,12 +6,15 @@ import {
   cadastrarCompra,
   listarCompras,
   listarItensDisponiveis,
+  removerCompra,
 } from '../../services/compraService'
-import { formatarCpf, formatarData, formatarValor } from '../../utils/formatadores'
+import { formatarCpf, formatarData, formatarValor, somenteDigitos } from '../../utils/formatadores'
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
+import SearchIcon from '@mui/icons-material/Search'
+import DeleteIcon from '@mui/icons-material/Delete'
 
 type ComprasProps = {
   onVoltar?: () => void
@@ -19,9 +22,10 @@ type ComprasProps = {
 
 const COMPRAS_POR_PAGINA = 10
 
-// "Urna Standard (1), Tanatopraxia (1)"
 const resumoDosItens = (compra: Compra) =>
-  compra.itens.map((item) => `${item.nome} (${item.quantidade})`).join(', ')
+  compra.itens.length > 0
+    ? compra.itens.map((item) => `${item.nome} (${item.quantidade})`).join(', ')
+    : '—'
 
 export default function Compras({ onVoltar }: ComprasProps) {
   const [compras, setCompras] = useState<Compra[]>([])
@@ -29,16 +33,18 @@ export default function Compras({ onVoltar }: ComprasProps) {
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
 
+  const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(1)
 
   const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [compraParaRemover, setCompraParaRemover] = useState<Compra | null>(null)
+  const [removendo, setRemovendo] = useState(false)
 
-  /* Texto do modal de sucesso (vazio = fechado). */
   const [mensagemSucesso, setMensagemSucesso] = useState('')
 
   /*
    * ==========================================================
-   * CARREGAR COMPRAS (por enquanto, dados de teste do compraService)
+   * CARREGAR COMPRAS
    * ==========================================================
    */
   useEffect(() => {
@@ -50,17 +56,24 @@ export default function Compras({ onVoltar }: ComprasProps) {
 
   /*
    * ==========================================================
-   * FILTRO E PAGINAÇÃO
+   * FILTRO (ID ou CPF do cliente) E PAGINAÇÃO
    * ==========================================================
-   *
-   * TODO (Arthur — tarefa 3: "Codificação da página frontend de busca de Compra"):
-   * a busca por ID ou CPF do cliente (RF009 fluxo alternativo / RF012) entra aqui.
-   * Basta filtrar `compras` pelo termo digitado e trocar `compras` por
-   * `comprasFiltradas` na paginação abaixo e na contagem "Exibindo X compra(s)".
-   * Se a busca não encontrar nada, exibir "Nenhum resultado encontrado!"
-   * (ver o bloco "LISTA VAZIA" na tabela). Mesmo padrão de Clientes.tsx e Produtos.tsx.
    */
-  const comprasFiltradas = compras
+  const comprasFiltradas = useMemo(() => {
+    const termo = busca.trim()
+    if (!termo) return compras
+
+    const termoDigitos = somenteDigitos(termo)
+
+    return compras.filter((compra) => {
+      if (String(compra.id).includes(termo)) return true
+      if (compra.cpfCliente) {
+        if (compra.cpfCliente.includes(termoDigitos)) return true
+        if (formatarCpf(compra.cpfCliente).includes(termo)) return true
+      }
+      return false
+    })
+  }, [busca, compras])
 
   const totalPaginas = Math.max(1, Math.ceil(comprasFiltradas.length / COMPRAS_POR_PAGINA))
   const paginaAtual = Math.min(pagina, totalPaginas)
@@ -73,7 +86,6 @@ export default function Compras({ onVoltar }: ComprasProps) {
    * ==========================================================
    * [RF009] CADASTRAR COMPRA
    * ==========================================================
-   * Os itens são carregados ao abrir o cadastro, para mostrar o estoque atual.
    */
   const abrirCadastro = async () => {
     try {
@@ -88,12 +100,36 @@ export default function Compras({ onVoltar }: ComprasProps) {
     }
   }
 
-  // Os erros lançados aqui são exibidos dentro do próprio modal.
   const handleSalvarCompra = async (dados: CompraFormulario) => {
     const compraCriada = await cadastrarCompra(dados)
-    setCompras((atuais) => [...atuais, compraCriada])
+    setCompras((atuais) => [compraCriada, ...atuais])
     setCadastroAberto(false)
     setMensagemSucesso('Operação realizada com sucesso!')
+  }
+
+  /*
+   * ==========================================================
+   * [RF010] REMOVER COMPRA
+   * ==========================================================
+   */
+  const confirmarRemocao = async () => {
+    if (!compraParaRemover) return
+
+    setRemovendo(true)
+    try {
+      await removerCompra(compraParaRemover.id)
+      setCompras((atuais) => atuais.filter((c) => c.id !== compraParaRemover.id))
+      setMensagemSucesso('Compra removida com sucesso!')
+    } catch (erroRequisicao) {
+      setErro(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível remover a compra.'
+      )
+    } finally {
+      setRemovendo(false)
+      setCompraParaRemover(null)
+    }
   }
 
   /*
@@ -113,7 +149,7 @@ export default function Compras({ onVoltar }: ComprasProps) {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Gerenciar Compras</h1>
-              <p className="text-sm text-blue-100">Cadastro e consulta de vendas avulsas</p>
+              <p className="text-sm text-blue-100">Cadastro, consulta e remoção de vendas avulsas</p>
             </div>
           </div>
 
@@ -132,12 +168,23 @@ export default function Compras({ onVoltar }: ComprasProps) {
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
         {/* PESQUISA + CADASTRO */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          {/*
-            TODO (Arthur — tarefa 3): campo "Pesquisar por ID ou CPF do cliente..."
-            entra aqui, antes do botão, com `className="relative flex-1"`
-            (copiar o campo de busca de Produtos.tsx). Ao digitar, voltar para a página 1.
-          */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <SearchIcon
+              fontSize="small"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              value={busca}
+              onChange={(event) => {
+                setBusca(event.target.value)
+                setPagina(1)
+              }}
+              placeholder="Pesquisar por ID ou CPF do cliente..."
+              className="w-full rounded-md border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
 
           <button
             type="button"
@@ -182,6 +229,7 @@ export default function Compras({ onVoltar }: ComprasProps) {
                   <th className="px-5 py-3 font-semibold">Itens</th>
                   <th className="px-5 py-3 font-semibold">Valor Total</th>
                   <th className="px-5 py-3 font-semibold">Data da Compra</th>
+                  <th className="px-5 py-3 text-center font-semibold">Ações</th>
                 </tr>
               </thead>
 
@@ -193,7 +241,7 @@ export default function Compras({ onVoltar }: ComprasProps) {
                       {compra.cpfCliente ? formatarCpf(compra.cpfCliente) : '—'}
                     </td>
                     <td
-                      className="max-w-[320px] truncate px-5 py-4 text-gray-600"
+                      className="max-w-[280px] truncate px-5 py-4 text-gray-600"
                       title={resumoDosItens(compra)}
                     >
                       {resumoDosItens(compra)}
@@ -202,20 +250,37 @@ export default function Compras({ onVoltar }: ComprasProps) {
                       {formatarValor(compra.valorTotal)}
                     </td>
                     <td className="px-5 py-4 text-gray-600">{formatarData(compra.dataCompra)}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setCompraParaRemover(compra)}
+                          title="Remover compra"
+                          aria-label={`Remover compra ${compra.id}`}
+                          className="cursor-pointer rounded-md px-3 py-1.5 text-red-500 transition hover:bg-red-50"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* CARREGANDO / LISTA VAZIA */}
-          {/* TODO (Arthur — tarefa 3): incluir aqui o caso "Nenhum resultado encontrado!"
-              para quando a busca não encontrar compras (ver Produtos.tsx). */}
+          {/* CARREGANDO / LISTA VAZIA / BUSCA SEM RESULTADO */}
           {carregando ? (
             <p className="px-6 py-12 text-center text-sm text-gray-500">Carregando compras...</p>
-          ) : compras.length === 0 && !erro && (
+          ) : compras.length === 0 ? (
+            !erro && (
+              <p className="px-6 py-12 text-center text-sm font-medium text-gray-700">
+                Não existem compras cadastradas.
+              </p>
+            )
+          ) : comprasFiltradas.length === 0 && (
             <p className="px-6 py-12 text-center text-sm font-medium text-gray-700">
-              Não existem compras cadastradas.
+              Nenhum resultado encontrado!
             </p>
           )}
         </div>
@@ -245,6 +310,61 @@ export default function Compras({ onVoltar }: ComprasProps) {
           </div>
         )}
       </main>
+
+      {/* MODAL DE CONFIRMAÇÃO DE REMOÇÃO */}
+      {compraParaRemover && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-white shadow-xl">
+            <div className="flex items-center gap-3 px-6 py-5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                <DeleteIcon className="text-red-600" sx={{ fontSize: 23 }} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Remover compra</h2>
+                <p className="text-sm text-gray-500">Confirmação de remoção</p>
+              </div>
+            </div>
+
+            <div className="px-6 py-6">
+              <p className="text-sm leading-6 text-gray-600">
+                Deseja realmente remover esta compra?
+              </p>
+              <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                <p className="text-sm font-semibold text-gray-900">Compra #{compraParaRemover.id}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Cliente: {compraParaRemover.cpfCliente ? formatarCpf(compraParaRemover.cpfCliente) : '—'} ·{' '}
+                  Valor: {formatarValor(compraParaRemover.valorTotal)} ·{' '}
+                  Data: {formatarData(compraParaRemover.dataCompra)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 bg-gray-50 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setCompraParaRemover(null)}
+                disabled={removendo}
+                className="cursor-pointer rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarRemocao}
+                disabled={removendo}
+                className="flex cursor-pointer items-center gap-2 rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <DeleteIcon fontSize="small" />
+                {removendo ? 'Removendo...' : 'Sim, remover'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE SUCESSO */}
       {mensagemSucesso && (
