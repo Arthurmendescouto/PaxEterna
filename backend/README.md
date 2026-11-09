@@ -99,3 +99,15 @@ Para testar:
 2. Inicie a API com `npm run dev`.
 3. No Insomnia, envie `GET http://localhost:3001/api/compras` (ou use a porta definida em `PORT`).
 4. Confirme `200 OK`, verifique os campos dos registros e compare-os com a tabela `Compra`. Uma tabela vazia deve retornar `200 OK` e `[]`.
+
+## Remover compra
+
+A API disponibiliza `DELETE /api/compras/:id_compra` para remover uma compra pelo ID. Por exemplo, envie `DELETE http://localhost:3001/api/compras/1` (ou substitua a porta pela definida em `PORT`).
+
+- `200 OK`: compra removida, com a resposta `{ "message": "Compra removida com sucesso." }`.
+- `400 Bad Request`: ID inválido ou não positivo.
+- `404 Not Found`: não existe compra com esse ID.
+- `409 Conflict`: o banco impediu a remoção por existirem registros vinculados; a resposta inclui uma mensagem em `message` para o frontend.
+- `500 Internal Server Error`: falha inesperada no servidor.
+
+Pelo esquema atual, os itens e pagamentos avulsos vinculados à compra são removidos em cascata.

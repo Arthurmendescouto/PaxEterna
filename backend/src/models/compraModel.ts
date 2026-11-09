@@ -1,4 +1,4 @@
-import { RowDataPacket } from "mysql2";
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../config/db";
 
 export interface Compra extends RowDataPacket {
@@ -19,4 +19,13 @@ export async function buscarTodasCompras(): Promise<Compra[]> {
   `);
 
   return rows;
+}
+
+export async function removerCompra(idCompra: number): Promise<boolean> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    "DELETE FROM Compra WHERE id_compra = ?",
+    [idCompra],
+  );
+
+  return result.affectedRows > 0;
 }
