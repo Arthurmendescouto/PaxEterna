@@ -39,5 +39,6 @@ export const comprasMock: Compra[] = [
       { itemId: 2, tipo: 'servico', nome: 'Translado', quantidade: 1, precoUnitario: 300, subtotal: 300 },
     ],
     valorTotal: 300,
+    statusPagamento: 'pago', // para testar a exceção 10.2 do RF010
   },
 ]

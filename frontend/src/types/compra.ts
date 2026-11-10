@@ -27,6 +27,8 @@ export interface Compra {
   dataCompra: string // YYYY-MM-DD
   itens: ItemCompra[]
   valorTotal: number
+  // Diagrama de classes: statusPagamento. Compra paga não pode ser alterada (RF010, exceção 10.2).
+  statusPagamento?: 'pendente' | 'pago'
 }
 
 // Dados enviados no cadastro (RF009). O Valor Total é calculado pelo sistema.
