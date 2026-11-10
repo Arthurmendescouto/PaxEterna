@@ -4,7 +4,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 
-import type { CompraFormulario, ItemDisponivel } from '../../types/compra'
+import type { Compra, CompraFormulario, ItemDisponivel } from '../../types/compra'
 import { formatarCpf, formatarValor, somenteDigitos } from '../../utils/formatadores'
 
 interface CadastroCompraModalProps {
@@ -12,6 +12,8 @@ interface CadastroCompraModalProps {
   onClose: () => void
   /* Deve lançar um erro com a mensagem a exibir caso a operação falhe. */
   onSave: (compra: CompraFormulario) => Promise<void>
+  /* Quando informada, o modal vira a tela de atualização (RF010). */
+  compra?: Compra
 }
 
 // Uma linha de item do formulário. "chave" identifica o item: "produto:1", "servico:2"...
@@ -21,6 +23,12 @@ interface LinhaItem {
 }
 
 const chaveDoItem = (item: ItemDisponivel) => `${item.tipo}:${item.id}`
+
+const linhasDaCompra = (compra: Compra): LinhaItem[] =>
+  compra.itens.map((item) => ({
+    chave: `${item.tipo}:${item.itemId}`,
+    quantidade: String(item.quantidade),
+  }))
 
 const hoje = () => {
   const data = new Date()
@@ -35,16 +43,32 @@ export default function CadastroCompraModal({
   itensDisponiveis,
   onClose,
   onSave,
+  compra,
 }: CadastroCompraModalProps) {
-  const [cpfCliente, setCpfCliente] = useState('')
-  const [dataCompra, setDataCompra] = useState(hoje)
-  const [linhas, setLinhas] = useState<LinhaItem[]>([{ chave: '', quantidade: '1' }])
+  const [cpfCliente, setCpfCliente] = useState(() =>
+    compra?.cpfCliente ? formatarCpf(compra.cpfCliente) : ''
+  )
+  const [dataCompra, setDataCompra] = useState(() => compra?.dataCompra ?? hoje())
+  const [linhas, setLinhas] = useState<LinhaItem[]>(() =>
+    compra && compra.itens.length > 0
+      ? linhasDaCompra(compra)
+      : [{ chave: '', quantidade: '1' }]
+  )
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
 
   const itemPorChave = new Map(itensDisponiveis.map((item) => [chaveDoItem(item), item]))
   const produtos = itensDisponiveis.filter((item) => item.tipo === 'produto')
   const servicos = itensDisponiveis.filter((item) => item.tipo === 'servico')
+
+  // Na atualização, o que já está na compra volta a contar como disponível
+  // (o estoque foi baixado quando a compra foi cadastrada).
+  const estoqueDisponivel = (item: ItemDisponivel): number | null => {
+    if (item.estoque === null) return null
+    const jaNaCompra =
+      compra?.itens.find((i) => i.itemId === item.id && i.tipo === item.tipo)?.quantidade ?? 0
+    return item.estoque + jaNaCompra
+  }
 
   const subtotal = (linha: LinhaItem) => {
     const item = itemPorChave.get(linha.chave)
@@ -89,7 +113,8 @@ export default function CadastroCompraModal({
     // exceção 9.2: quantidade maior que o estoque disponível
     const estourou = linhas.some((linha) => {
       const item = itemPorChave.get(linha.chave)
-      return item?.estoque != null && Number(linha.quantidade) > item.estoque
+      const disponivel = item ? estoqueDisponivel(item) : null
+      return disponivel !== null && Number(linha.quantidade) > disponivel
     })
     if (estourou) {
       return 'Estoque insuficiente para o item selecionado!'
@@ -120,7 +145,9 @@ export default function CadastroCompraModal({
       setErro(
         erroRequisicao instanceof Error
           ? erroRequisicao.message
-          : 'Não foi possível cadastrar a compra.'
+          : compra
+            ? 'Não foi possível atualizar a compra.'
+            : 'Não foi possível cadastrar a compra.'
       )
     } finally {
       setSalvando(false)
@@ -133,8 +160,9 @@ export default function CadastroCompraModal({
 
   const opcao = (item: ItemDisponivel, indice: number) => {
     const chave = chaveDoItem(item)
-    const semEstoque = item.estoque === 0
-    const estoque = item.estoque === null ? '' : ` (estoque: ${item.estoque})`
+    const disponivel = estoqueDisponivel(item)
+    const semEstoque = disponivel === 0
+    const estoque = disponivel === null ? '' : ` (estoque: ${disponivel})`
     return (
       <option
         key={chave}
@@ -161,10 +189,12 @@ export default function CadastroCompraModal({
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 id="cadastro-compra-titulo" className="text-xl font-bold text-gray-900">
-              Cadastrar compra
+              {compra ? `Atualizar compra #${compra.id}` : 'Cadastrar compra'}
             </h2>
             <p className="mt-1 text-sm text-gray-500">
-              Registre uma venda avulsa de produtos ou serviços.
+              {compra
+                ? 'Altere os dados da venda avulsa.'
+                : 'Registre uma venda avulsa de produtos ou serviços.'}
             </p>
           </div>
           <button
@@ -256,7 +286,7 @@ export default function CadastroCompraModal({
                         type="number"
                         min="1"
                         step="1"
-                        max={item?.estoque ?? undefined}
+                        max={item ? estoqueDisponivel(item) ?? undefined : undefined}
                         value={linha.quantidade}
                         onChange={(event) => alterarLinha(indice, 'quantidade', event.target.value)}
                         className={classeInput}
@@ -327,7 +357,7 @@ export default function CadastroCompraModal({
             disabled={salvando}
             className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {salvando ? 'Salvando...' : 'Cadastrar'}
+            {salvando ? 'Salvando...' : compra ? 'Atualizar' : 'Cadastrar'}
           </button>
         </div>
       </form>

@@ -105,6 +105,49 @@ export async function cadastrarCompra(dados: CompraFormulario): Promise<Compra> 
 }
 
 /**
+ * [RF010] Atualiza uma compra. Compras já pagas não podem ser alteradas.
+ */
+export async function atualizarCompra(id: number, dados: CompraFormulario): Promise<Compra> {
+  if (USAR_MOCK) {
+    const atual = _compras.find((c) => c.id === id)
+    if (!atual) throw new Error('Compra não encontrada.')
+    // RF010 exceção 10.2
+    if (atual.statusPagamento === 'pago')
+      throw new Error('Não é possível alterar compras já pagas. Estorne o pagamento primeiro!')
+
+    const itensDisponiveis = structuredClone(itensDisponiveisMock)
+    const itens = dados.itens.map((itemPedido) => {
+      const item = itensDisponiveis.find((d) => d.id === itemPedido.itemId && d.tipo === itemPedido.tipo)
+      if (!item) throw new Error('Preencha todos os campos obrigatórios!')
+      // a quantidade que já estava na compra volta a contar como disponível
+      const jaNaCompra = atual.itens.find((i) => i.itemId === item.id && i.tipo === item.tipo)?.quantidade ?? 0
+      if (item.estoque !== null && itemPedido.quantidade > item.estoque + jaNaCompra)
+        throw new Error('Estoque insuficiente para o item selecionado!')
+      return { itemId: item.id, tipo: item.tipo, nome: item.nome, quantidade: itemPedido.quantidade, precoUnitario: item.valor, subtotal: item.valor * itemPedido.quantidade }
+    })
+    const compraAtualizada: Compra = {
+      ...atual,
+      cpfCliente: dados.cpfCliente,
+      dataCompra: dados.dataCompra,
+      itens,
+      valorTotal: itens.reduce((t, i) => t + i.subtotal, 0),
+    }
+    _compras = _compras.map((c) => (c.id === id ? compraAtualizada : c))
+    return structuredClone(compraAtualizada)
+  }
+
+  // VERSÃO REAL:
+  const resposta = await requisitar(`${API_URL}/compras/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados),
+  })
+  if (!resposta.ok) return tratarErro(resposta, 'Não foi possível atualizar a compra.')
+  const { compra } = await resposta.json()
+  return normalizarCompra(compra)
+}
+
+/**
  * [RF010] Remove uma compra pelo ID.
  */
 export async function removerCompra(id: number): Promise<void> {
