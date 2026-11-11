@@ -127,9 +127,21 @@ Envie `PUT /api/compras/:id_compra` com o mesmo formato do cadastro. A atualiza�
 
 Em sucesso, retorna `200 OK` com a compra atualizada; compra inexistente retorna `404`. As demais respostas de erro seguem as validações do cadastro.
 
+### Remover compra
+
+A API disponibiliza `DELETE /api/compras/:id_compra` para remover uma compra pelo ID. Por exemplo, envie `DELETE http://localhost:3001/api/compras/1` (ou substitua a porta pela definida em `PORT`).
+
+- `200 OK`: compra removida, com a resposta `{ "message": "Compra removida com sucesso." }`.
+- `400 Bad Request`: ID inválido ou não positivo.
+- `404 Not Found`: não existe compra com esse ID.
+- `409 Conflict`: o banco impediu a remoção por existirem registros vinculados; a resposta inclui uma mensagem em `message` para o frontend.
+- `500 Internal Server Error`: falha inesperada no servidor.
+
+Pelo esquema atual, os itens e pagamentos avulsos vinculados à compra são removidos em cascata.
+
 Para testar:
 
 1. Inicie o MySQL e aplique as migrations conforme as instruções acima.
 2. Inicie a API com `npm run dev`.
-3. Use o Insomnia para enviar `GET`, `POST` e `PUT` para `http://localhost:3001/api/compras`.
+3. Use o Insomnia para enviar `GET`, `POST`, `PUT` e `DELETE` para `http://localhost:3001/api/compras`.
 4. Confirme as respostas e confira `Compra`, `Item_compra` e o estoque de `Produto` no banco.
