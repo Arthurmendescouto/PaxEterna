@@ -1,19 +1,34 @@
-import type { Compra, CompraFormulario, ItemDisponivel } from '../types/compra'
-
-// ⚠️  MOCK ATIVO — para integrar com o backend, troque USAR_MOCK para false.
-import { comprasMock, itensDisponiveisMock } from './compraMock'
-let _compras: Compra[] = structuredClone(comprasMock)
-const USAR_MOCK = true
-
-// ---------------------------------------------------------------------------
+import type { Compra, CompraFormulario, ItemDisponivel, TipoItem } from '../types/compra'
 
 const API_URL = 'http://localhost:3001/api'
+
+/*
+ * O backend retorna os campos no formato do banco (`id_compra`,
+ * `fk_Cliente_cpf`...) e os valores como texto decimal. Estas funções
+ * convertem para o tipo `Compra` usado no frontend.
+ */
+type ItemCompraBackend = {
+  itemId: number
+  tipo: TipoItem
+  nome: string
+  quantidade: number
+  precoUnitario: string
+}
 
 type CompraBackend = {
   id_compra: number
   fk_Cliente_cpf: string | null
   data_compra: string
   valor_total: string
+  itens?: ItemCompraBackend[]
+  statusPagamento?: 'pendente' | 'pago'
+}
+
+type ProdutoBackend = {
+  id_produto: number
+  nome: string
+  valor: string
+  quantidade: number
 }
 
 function normalizarCompra(compra: CompraBackend): Compra {
@@ -21,17 +36,31 @@ function normalizarCompra(compra: CompraBackend): Compra {
     id: compra.id_compra,
     cpfCliente: compra.fk_Cliente_cpf,
     dataCompra: compra.data_compra,
-    itens: [],
+    itens: (compra.itens ?? []).map((item) => {
+      const precoUnitario = Number(item.precoUnitario)
+      return {
+        itemId: item.itemId,
+        tipo: item.tipo,
+        nome: item.nome,
+        quantidade: Number(item.quantidade),
+        precoUnitario,
+        subtotal: precoUnitario * Number(item.quantidade),
+      }
+    }),
     valorTotal: Number(compra.valor_total),
+    statusPagamento: compra.statusPagamento,
   }
 }
 
+// Lê a mensagem de erro enviada pelo backend ({ error } ou { message }).
 async function tratarErro(resposta: Response, mensagemPadrao: string): Promise<never> {
   let mensagem = mensagemPadrao
   try {
     const corpo = await resposta.json()
     mensagem = corpo.error ?? corpo.message ?? mensagemPadrao
-  } catch { /* sem JSON */ }
+  } catch {
+    // resposta sem JSON: mantém a mensagem padrão
+  }
   throw new Error(mensagem)
 }
 
@@ -39,67 +68,50 @@ async function requisitar(url: string, init?: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init)
   } catch {
-    throw new Error('Não foi possível conectar ao servidor.')
+    throw new Error('Erro de conexão. Tente novamente mais tarde.')
   }
 }
 
 /**
- * Lista os itens disponíveis para venda.
+ * Lista os itens que podem entrar numa compra.
+ * Por enquanto só produtos: o backend ainda não tem rota de serviços.
  */
 export async function listarItensDisponiveis(): Promise<ItemDisponivel[]> {
-  if (USAR_MOCK) return structuredClone(itensDisponiveisMock)
-
-  // VERSÃO REAL:
   const resposta = await requisitar(`${API_URL}/produtos`)
   if (!resposta.ok) return tratarErro(resposta, 'Não foi possível carregar os itens disponíveis.')
-  const produtos: { id_produto: number; nome: string; valor: string; quantidade: number }[] = await resposta.json()
-  return produtos.map((p) => ({ id: p.id_produto, tipo: 'produto' as const, nome: p.nome, valor: Number(p.valor), estoque: p.quantidade }))
+
+  const produtos: ProdutoBackend[] = await resposta.json()
+  return produtos.map((produto) => ({
+    id: produto.id_produto,
+    tipo: 'produto' as const,
+    nome: produto.nome,
+    valor: Number(produto.valor),
+    estoque: Number(produto.quantidade),
+  }))
 }
 
 /**
  * [RF012] Lista as compras cadastradas.
  */
 export async function listarCompras(): Promise<Compra[]> {
-  if (USAR_MOCK) return structuredClone(_compras)
-
-  // VERSÃO REAL:
   const resposta = await requisitar(`${API_URL}/compras`)
   if (!resposta.ok) return tratarErro(resposta, 'Não foi possível carregar as compras.')
+
   const compras: CompraBackend[] = await resposta.json()
   return compras.map(normalizarCompra)
 }
 
 /**
- * [RF009] Cadastra uma compra.
+ * [RF009] Cadastra uma compra. O backend valida o estoque e calcula o total.
  */
 export async function cadastrarCompra(dados: CompraFormulario): Promise<Compra> {
-  if (USAR_MOCK) {
-    const itensDisponiveis = structuredClone(itensDisponiveisMock)
-    const itens = dados.itens.map((itemPedido) => {
-      const item = itensDisponiveis.find((d) => d.id === itemPedido.itemId && d.tipo === itemPedido.tipo)
-      if (!item) throw new Error('Preencha todos os campos obrigatórios!')
-      if (item.estoque !== null && itemPedido.quantidade > item.estoque)
-        throw new Error('Estoque insuficiente para o item selecionado!')
-      return { itemId: item.id, tipo: item.tipo, nome: item.nome, quantidade: itemPedido.quantidade, precoUnitario: item.valor, subtotal: item.valor * itemPedido.quantidade }
-    })
-    const novaCompra: Compra = {
-      id: Math.max(0, ..._compras.map((c) => c.id)) + 1,
-      cpfCliente: dados.cpfCliente,
-      dataCompra: dados.dataCompra,
-      itens,
-      valorTotal: itens.reduce((t, i) => t + i.subtotal, 0),
-    }
-    _compras = [novaCompra, ..._compras]
-    return structuredClone(novaCompra)
-  }
-
-  // VERSÃO REAL:
   const resposta = await requisitar(`${API_URL}/compras`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(dados),
   })
   if (!resposta.ok) return tratarErro(resposta, 'Não foi possível cadastrar a compra.')
+
   const { compra } = await resposta.json()
   return normalizarCompra(compra)
 }
@@ -108,57 +120,21 @@ export async function cadastrarCompra(dados: CompraFormulario): Promise<Compra> 
  * [RF010] Atualiza uma compra. Compras já pagas não podem ser alteradas.
  */
 export async function atualizarCompra(id: number, dados: CompraFormulario): Promise<Compra> {
-  if (USAR_MOCK) {
-    const atual = _compras.find((c) => c.id === id)
-    if (!atual) throw new Error('Compra não encontrada.')
-    // RF010 exceção 10.2
-    if (atual.statusPagamento === 'pago')
-      throw new Error('Não é possível alterar compras já pagas. Estorne o pagamento primeiro!')
-
-    const itensDisponiveis = structuredClone(itensDisponiveisMock)
-    const itens = dados.itens.map((itemPedido) => {
-      const item = itensDisponiveis.find((d) => d.id === itemPedido.itemId && d.tipo === itemPedido.tipo)
-      if (!item) throw new Error('Preencha todos os campos obrigatórios!')
-      // a quantidade que já estava na compra volta a contar como disponível
-      const jaNaCompra = atual.itens.find((i) => i.itemId === item.id && i.tipo === item.tipo)?.quantidade ?? 0
-      if (item.estoque !== null && itemPedido.quantidade > item.estoque + jaNaCompra)
-        throw new Error('Estoque insuficiente para o item selecionado!')
-      return { itemId: item.id, tipo: item.tipo, nome: item.nome, quantidade: itemPedido.quantidade, precoUnitario: item.valor, subtotal: item.valor * itemPedido.quantidade }
-    })
-    const compraAtualizada: Compra = {
-      ...atual,
-      cpfCliente: dados.cpfCliente,
-      dataCompra: dados.dataCompra,
-      itens,
-      valorTotal: itens.reduce((t, i) => t + i.subtotal, 0),
-    }
-    _compras = _compras.map((c) => (c.id === id ? compraAtualizada : c))
-    return structuredClone(compraAtualizada)
-  }
-
-  // VERSÃO REAL:
   const resposta = await requisitar(`${API_URL}/compras/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(dados),
   })
   if (!resposta.ok) return tratarErro(resposta, 'Não foi possível atualizar a compra.')
+
   const { compra } = await resposta.json()
   return normalizarCompra(compra)
 }
 
 /**
- * [RF010] Remove uma compra pelo ID.
+ * [RF011] Remove uma compra pelo ID.
  */
 export async function removerCompra(id: number): Promise<void> {
-  if (USAR_MOCK) {
-    const existe = _compras.some((c) => c.id === id)
-    if (!existe) throw new Error('Compra não encontrada.')
-    _compras = _compras.filter((c) => c.id !== id)
-    return
-  }
-
-  // VERSÃO REAL:
   const resposta = await requisitar(`${API_URL}/compras/${id}`, { method: 'DELETE' })
   if (!resposta.ok) return tratarErro(resposta, 'Não foi possível remover a compra.')
 }
