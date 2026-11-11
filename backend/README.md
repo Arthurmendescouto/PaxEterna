@@ -76,38 +76,60 @@ Envie o `POST` com cada variação abaixo e confirme `400 Bad Request`:
 
 Os campos obrigatórios são `nome`, `cpf`, `rg`, `dataNascimento`, ao menos um telefone textual e os campos de endereço `logradouro`, `numEndereco`, `bairro`, `cep`, `cidade` e `uf`.
 
-## Consultar compras
+## Compras
 
-A API disponibiliza `GET /api/compras` para listar os registros da tabela `Compra`. Com o servidor na porta padrão, use `http://localhost:3001/api/compras`; se a variável `PORT` estiver configurada, substitua `3001` pela porta configurada.
+As rotas usam `http://localhost:3001/api/compras` (substitua a porta se `PORT` estiver configurada). Antes de testar, aplique as migrations com `npm run db:migrate`.
 
-No Insomnia, crie uma requisição **GET** para essa URL e envie. Não é necessário corpo nem autenticação. Em caso de sucesso, a resposta é `200 OK` com um array JSON; sem compras cadastradas, o resultado é `[]`. Cada item contém:
+### Consultar compras
+
+Envie `GET /api/compras`, sem corpo. Em caso de sucesso, a resposta é `200 OK` com um array JSON; sem compras cadastradas, o resultado é `[]`. Cada compra contém:
 
 ```json
 {
   "id_compra": 1,
   "fk_Cliente_cpf": "52998224725",
   "data_compra": "2026-10-25",
-  "valor_total": "150.00"
+  "valor_total": "150.00",
+  "itens": [
+    {
+      "itemId": 1,
+      "tipo": "produto",
+      "nome": "Urna",
+      "quantidade": 1,
+      "precoUnitario": "150.00"
+    }
+  ]
 }
 ```
 
-`valor_total` é retornado como texto decimal para preservar a precisão do valor armazenado no MySQL. Os registros vêm ordenados do ID mais recente para o mais antigo. Se ocorrer falha na consulta ao banco, a API responde `500` com uma mensagem de erro.
+`valor_total` e `precoUnitario` são retornados como texto decimal para preservar a precisão do MySQL. Os registros vêm ordenados do ID mais recente para o mais antigo.
+
+### Cadastrar compra
+
+Envie `POST /api/compras` com `Content-Type: application/json`. O CPF pode ser `null`; itens devem usar `tipo: "produto"` (ID da tabela `Produto`) ou `tipo: "servico"` (ID de um `Recurso` do tipo serviço). O backend valida os dados e o estoque, calcula o total usando os preços atuais do banco, reduz o estoque dos produtos e grava compra e itens em uma transação.
+
+```json
+{
+  "cpfCliente": "52998224725",
+  "dataCompra": "2026-10-25",
+  "itens": [
+    { "itemId": 1, "tipo": "produto", "quantidade": 1 },
+    { "itemId": 2, "tipo": "servico", "quantidade": 1 }
+  ]
+}
+```
+
+Uma compra sem cliente pode enviar `"cpfCliente": null`. Em sucesso, retorna `201 Created` com a compra cadastrada. Dados inválidos retornam `400`, cliente ou item inexistente retorna `404`, e falta de estoque retorna `409`.
+
+### Atualizar compra
+
+Envie `PUT /api/compras/:id_compra` com o mesmo formato do cadastro. A atualização substitui os itens existentes, atualiza cliente/data/total e ajusta o estoque em uma única transação: devolve ao estoque os produtos da versão anterior e desconta os da nova versão. Se a atualização falhar, as alterações são desfeitas.
+
+Em sucesso, retorna `200 OK` com a compra atualizada; compra inexistente retorna `404`. As demais respostas de erro seguem as validações do cadastro.
 
 Para testar:
 
-1. Inicie o MySQL e aplique as migrations conforme as instruções acima; a tabela `Compra` deve existir e ter registros para que a resposta contenha itens.
+1. Inicie o MySQL e aplique as migrations conforme as instruções acima.
 2. Inicie a API com `npm run dev`.
-3. No Insomnia, envie `GET http://localhost:3001/api/compras` (ou use a porta definida em `PORT`).
-4. Confirme `200 OK`, verifique os campos dos registros e compare-os com a tabela `Compra`. Uma tabela vazia deve retornar `200 OK` e `[]`.
-
-## Remover compra
-
-A API disponibiliza `DELETE /api/compras/:id_compra` para remover uma compra pelo ID. Por exemplo, envie `DELETE http://localhost:3001/api/compras/1` (ou substitua a porta pela definida em `PORT`).
-
-- `200 OK`: compra removida, com a resposta `{ "message": "Compra removida com sucesso." }`.
-- `400 Bad Request`: ID inválido ou não positivo.
-- `404 Not Found`: não existe compra com esse ID.
-- `409 Conflict`: o banco impediu a remoção por existirem registros vinculados; a resposta inclui uma mensagem em `message` para o frontend.
-- `500 Internal Server Error`: falha inesperada no servidor.
-
-Pelo esquema atual, os itens e pagamentos avulsos vinculados à compra são removidos em cascata.
+3. Use o Insomnia para enviar `GET`, `POST` e `PUT` para `http://localhost:3001/api/compras`.
+4. Confirme as respostas e confira `Compra`, `Item_compra` e o estoque de `Produto` no banco.

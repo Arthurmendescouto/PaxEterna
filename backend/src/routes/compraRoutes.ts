@@ -1,12 +1,14 @@
 import { Router } from "express";
 import {
+  atualizarCompra,
   buscarCompras,
-  excluirCompra,
+  cadastrarCompra,
 } from "../controllers/compraController";
 
 const router = Router();
 
 router.get("/", buscarCompras);
-router.delete("/:id_compra", excluirCompra);
+router.post("/", cadastrarCompra);
+router.put("/:id_compra", atualizarCompra);
 
 export default router;
