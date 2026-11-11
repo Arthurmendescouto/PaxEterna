@@ -272,3 +272,12 @@ export async function atualizarCompra(
     connection.release();
   }
 }
+
+export async function removerCompra(idCompra: number): Promise<boolean> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    "DELETE FROM Compra WHERE id_compra = ?",
+    [idCompra],
+  );
+
+  return result.affectedRows > 0;
+}

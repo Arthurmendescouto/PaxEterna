@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import CadastroCompraModal from '../../components/compras/CadastroCompraModal'
 import type { Compra, CompraFormulario, ItemDisponivel } from '../../types/compra'
 import {
+  atualizarCompra,
   cadastrarCompra,
   listarCompras,
   listarItensDisponiveis,
@@ -15,6 +16,7 @@ import AddIcon from '@mui/icons-material/Add'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 import SearchIcon from '@mui/icons-material/Search'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 
 type ComprasProps = {
   onVoltar?: () => void
@@ -37,6 +39,7 @@ export default function Compras({ onVoltar }: ComprasProps) {
   const [pagina, setPagina] = useState(1)
 
   const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [compraEmEdicao, setCompraEmEdicao] = useState<Compra | null>(null)
   const [compraParaRemover, setCompraParaRemover] = useState<Compra | null>(null)
   const [removendo, setRemovendo] = useState(false)
 
@@ -109,7 +112,42 @@ export default function Compras({ onVoltar }: ComprasProps) {
 
   /*
    * ==========================================================
-   * [RF010] REMOVER COMPRA
+   * [RF010] ATUALIZAR COMPRA
+   * ==========================================================
+   * Compra já paga não pode ser alterada (exceção 10.2): o aviso aparece
+   * na listagem, sem abrir o formulário.
+   */
+  const abrirAtualizacao = async (compra: Compra) => {
+    if (compra.statusPagamento === 'pago') {
+      setErro('Não é possível alterar compras já pagas. Estorne o pagamento primeiro!')
+      return
+    }
+    try {
+      setItensDisponiveis(await listarItensDisponiveis())
+      setCompraEmEdicao(compra)
+    } catch (erroRequisicao) {
+      setErro(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível carregar os itens.'
+      )
+    }
+  }
+
+  // Os erros lançados aqui são exibidos dentro do próprio modal.
+  const handleAtualizarCompra = async (dados: CompraFormulario) => {
+    if (!compraEmEdicao) return
+    const compraAtualizada = await atualizarCompra(compraEmEdicao.id, dados)
+    setCompras((atuais) =>
+      atuais.map((c) => (c.id === compraAtualizada.id ? compraAtualizada : c))
+    )
+    setCompraEmEdicao(null)
+    setMensagemSucesso('Operação realizada com sucesso!')
+  }
+
+  /*
+   * ==========================================================
+   * [RF011] REMOVER COMPRA
    * ==========================================================
    */
   const confirmarRemocao = async () => {
@@ -149,7 +187,7 @@ export default function Compras({ onVoltar }: ComprasProps) {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Gerenciar Compras</h1>
-              <p className="text-sm text-blue-100">Cadastro, consulta e remoção de vendas avulsas</p>
+              <p className="text-sm text-blue-100">Cadastro, consulta, atualização e remoção de vendas avulsas</p>
             </div>
           </div>
 
@@ -251,7 +289,17 @@ export default function Compras({ onVoltar }: ComprasProps) {
                     </td>
                     <td className="px-5 py-4 text-gray-600">{formatarData(compra.dataCompra)}</td>
                     <td className="px-5 py-4">
-                      <div className="flex justify-center">
+                      <div className="flex justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => abrirAtualizacao(compra)}
+                          title="Atualizar"
+                          aria-label={`Atualizar compra ${compra.id}`}
+                          className="cursor-pointer rounded-md px-3 py-1.5 text-green-600 transition hover:bg-green-50"
+                        >
+                          <EditIcon fontSize="small" />
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => setCompraParaRemover(compra)}
@@ -404,6 +452,16 @@ export default function Compras({ onVoltar }: ComprasProps) {
           itensDisponiveis={itensDisponiveis}
           onClose={() => setCadastroAberto(false)}
           onSave={handleSalvarCompra}
+        />
+      )}
+
+      {/* MODAL DE ATUALIZAÇÃO (mesmo formulário, preenchido com a compra) */}
+      {compraEmEdicao && (
+        <CadastroCompraModal
+          compra={compraEmEdicao}
+          itensDisponiveis={itensDisponiveis}
+          onClose={() => setCompraEmEdicao(null)}
+          onSave={handleAtualizarCompra}
         />
       )}
     </div>
