@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import PaymentsIcon from '@mui/icons-material/Payments'
 import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -78,6 +79,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
   const [pagina, setPagina] = useState(1)
   const [pagamentoSelecionado, setPagamentoSelecionado] = useState<Pagamento | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
+  const [pagamentoEmEdicao, setPagamentoEmEdicao] = useState<Pagamento | null>(null)
   const [mensagemSucesso, setMensagemSucesso] = useState('')
   const [cpf, setCpf] = useState('')
   const [cpfValidado, setCpfValidado] = useState('')
@@ -121,6 +123,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
 
   const abrirCadastro = () => {
     requisicaoCpf.current += 1
+    setPagamentoEmEdicao(null)
     setCpf('')
     setCpfValidado('')
     setConsultandoCliente(false)
@@ -134,10 +137,27 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
     setCadastroAberto(true)
   }
 
+  const abrirEdicao = (pagamento: Pagamento) => {
+    requisicaoCpf.current += 1
+    setPagamentoEmEdicao(pagamento)
+    setCpf(formatarCpf(pagamento.cpf))
+    setCpfValidado(pagamento.cpf)
+    setConsultandoCliente(false)
+    setErroCpf('')
+    setNome(pagamento.nome)
+    setValor(String(pagamento.valor))
+    setFormaPagamento(pagamento.formaPagamento)
+    setTipoPagamento(pagamento.tipo)
+    setErroFormulario('')
+    setMensagemSucesso('')
+    setCadastroAberto(true)
+  }
+
   const fecharCadastro = () => {
     requisicaoCpf.current += 1
     setConsultandoCliente(false)
     setCadastroAberto(false)
+    setPagamentoEmEdicao(null)
   }
 
   const consultarClientePorCpf = async () => {
@@ -175,12 +195,12 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
     }
   }
 
-  const cadastrarPagamento = (event: FormEvent<HTMLFormElement>) => {
+  const salvarPagamento = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const valorNumerico = Number(valor)
 
     if (!cpfValidado || cpfValidado !== somenteDigitos(cpf)) {
-      setErroFormulario('Consulte um CPF existente antes de cadastrar o pagamento.')
+      setErroFormulario('Consulte um CPF existente antes de salvar o pagamento.')
       return
     }
 
@@ -196,20 +216,33 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
       return
     }
 
-    setPagamentos((atuais) => [
-      ...atuais,
-      {
-        id: proximoId,
-        cpf: cpfValidado,
-        nome: nome.trim(),
-        valor: valorNumerico,
-        formaPagamento,
-        tipo: tipoPagamento,
-      },
-    ])
-    setProximoId((idAtual) => idAtual + 1)
+    const dadosPagamento: Pagamento = {
+      id: pagamentoEmEdicao?.id ?? proximoId,
+      cpf: cpfValidado,
+      nome: nome.trim(),
+      valor: valorNumerico,
+      formaPagamento,
+      tipo: tipoPagamento,
+    }
+
+    if (pagamentoEmEdicao) {
+      setPagamentos((atuais) =>
+        atuais.map((pagamento) =>
+          pagamento.id === pagamentoEmEdicao.id ? dadosPagamento : pagamento
+        )
+      )
+    } else {
+      setPagamentos((atuais) => [...atuais, dadosPagamento])
+      setProximoId((idAtual) => idAtual + 1)
+    }
+
     setCadastroAberto(false)
-    setMensagemSucesso('Pagamento cadastrado com sucesso!')
+    setPagamentoEmEdicao(null)
+    setMensagemSucesso(
+      pagamentoEmEdicao
+        ? 'Pagamento atualizado com sucesso!'
+        : 'Pagamento cadastrado com sucesso!'
+    )
   }
 
   const confirmarEstorno = () => {
@@ -232,7 +265,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Gerenciar Pagamentos</h1>
-              <p className="text-sm text-blue-100">Cadastro e consulta de pagamentos</p>
+              <p className="text-sm text-blue-100">Cadastro, atualização e consulta de pagamentos</p>
             </div>
           </div>
 
@@ -277,8 +310,8 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
         </div>
 
         <div className="mb-4 rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          A lista inicia com registros fictícios para demonstração. Novos cadastros consultam o CPF
-          na base de clientes; cadastros e estornos ficam apenas nesta tela até a integração com a API.
+          A lista inicia com registros fictícios para demonstração. O CPF é consultado na base de
+          clientes; cadastros, atualizações e estornos ficam apenas nesta tela até a integração com a API.
         </div>
 
         {mensagemSucesso && (
@@ -342,6 +375,15 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                       </button>
                       <button
                         type="button"
+                        onClick={() => abrirEdicao(pagamento)}
+                        title="Editar pagamento"
+                        aria-label={`Editar pagamento ${pagamento.id}`}
+                        className="cursor-pointer rounded-md px-3 py-1.5 text-amber-600 transition hover:bg-amber-50"
+                      >
+                        <EditIcon fontSize="small" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setPagamentoParaEstornar(pagamento)}
                         title="Estornar pagamento"
                         aria-label={`Estornar pagamento ${pagamento.id}`}
@@ -393,14 +435,14 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
 
       {cadastroAberto && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="pagamento-cadastro-titulo"
         >
           <form
-            onSubmit={cadastrarPagamento}
-            className="w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl"
+            onSubmit={salvarPagamento}
+            className="flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-xl"
           >
             <div className="flex items-center gap-3 px-6 py-5">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100">
@@ -408,13 +450,17 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
               </div>
               <div>
                 <h2 id="pagamento-cadastro-titulo" className="text-lg font-semibold text-gray-900">
-                  Cadastrar pagamento
+                  {pagamentoEmEdicao ? 'Atualizar pagamento' : 'Cadastrar pagamento'}
                 </h2>
-                <p className="text-sm text-gray-500">Preencha os dados do pagamento</p>
+                <p className="text-sm text-gray-500">
+                  {pagamentoEmEdicao
+                    ? 'Altere os dados do pagamento selecionado'
+                    : 'Preencha os dados do pagamento'}
+                </p>
               </div>
             </div>
 
-            <div className="space-y-4 px-6 py-2">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-2">
               <div>
                 <label htmlFor="pagamento-id" className="mb-1 block text-sm font-medium text-gray-700">
                   ID do pagamento
@@ -422,11 +468,15 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                 <input
                   id="pagamento-id"
                   type="text"
-                  value={proximoId}
+                  value={pagamentoEmEdicao?.id ?? proximoId}
                   readOnly
                   className="w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600"
                 />
-                <p className="mt-1 text-xs text-gray-500">Gerado automaticamente pelo sistema.</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {pagamentoEmEdicao
+                    ? 'O identificador do pagamento não pode ser alterado.'
+                    : 'Gerado automaticamente pelo sistema.'}
+                </p>
               </div>
 
               <div>
@@ -465,7 +515,8 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                   </button>
                 </div>
                 <p id="pagamento-cpf-ajuda" className="mt-1 text-xs text-gray-500">
-                  O nome será preenchido após confirmar um CPF cadastrado.
+                  O nome será preenchido após confirmar um CPF cadastrado. Em uma edição, o CPF atual
+                  já está validado; consulte novamente se ele for alterado.
                 </p>
                 {erroCpf && (
                   <p className="mt-1 text-sm text-red-700" role="alert">
@@ -557,7 +608,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end gap-3 bg-gray-50 px-6 py-4">
+            <div className="flex shrink-0 justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
               <button
                 type="button"
                 onClick={fecharCadastro}
@@ -569,7 +620,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                 type="submit"
                 className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
               >
-                Cadastrar
+                {pagamentoEmEdicao ? 'Salvar alterações' : 'Cadastrar'}
               </button>
             </div>
           </form>
