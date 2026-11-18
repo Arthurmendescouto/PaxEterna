@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import clienteRoutes from "./routes/clienteRoutes";
 import produtoRoutes from "./routes/produtoRoutes";
 import compraRoutes from "./routes/compraRoutes";
+import pagamentoRoutes from "./routes/pagamentoRoutes";
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use("/api", clienteRoutes);
 app.use("/api/produtos", produtoRoutes);
 app.use("/api/compras", compraRoutes);
+app.use("/api/pagamentos", pagamentoRoutes);
 
 const PORT = process.env.PORT || 3001;
 
