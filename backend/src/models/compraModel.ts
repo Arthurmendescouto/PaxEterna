@@ -47,6 +47,70 @@ export interface Compra {
   fk_Cliente_cpf: string | null;
   data_compra: string;
   valor_total: string;
+  itens: {
+    itemId: number;
+    tipo: TipoItemCompra;
+    nome: string;
+    quantidade: number;
+    precoUnitario: string;
+  }[];
+}
+
+async function buscarCompras(idCompra?: number): Promise<Compra[]> {
+  const [rows] = await pool.query<CompraRow[]>(
+    `SELECT c.id_compra,
+            c.fk_Cliente_cpf,
+            DATE_FORMAT(c.data_compra, '%Y-%m-%d') AS data_compra,
+            c.valor_total,
+            i.id_item_compra,
+            COALESCE(p.id_produto, r.id_recurso) AS item_id,
+            CASE WHEN i.fk_Produto_id_produto IS NOT NULL THEN 'produto'
+                 ELSE 'servico' END AS item_tipo,
+            COALESCE(p.nome, r.nome) AS item_nome,
+            i.quantidade AS item_quantidade,
+            i.valor AS item_valor
+       FROM Compra c
+       LEFT JOIN Item_compra i ON i.fk_Compra_id_compra = c.id_compra
+       LEFT JOIN Produto p ON p.id_produto = i.fk_Produto_id_produto
+       LEFT JOIN Recurso r ON r.id_recurso = i.fk_Recurso_id_recurso
+      ${idCompra === undefined ? "" : "WHERE c.id_compra = ?"}
+      ORDER BY c.id_compra DESC, i.id_item_compra`,
+    idCompra === undefined ? [] : [idCompra]
+  );
+
+  const compras = new Map<number, Compra>();
+  for (const row of rows) {
+    let compra = compras.get(row.id_compra);
+    if (!compra) {
+      compra = {
+        id_compra: row.id_compra,
+        fk_Cliente_cpf: row.fk_Cliente_cpf,
+        data_compra: row.data_compra,
+        valor_total: row.valor_total,
+        itens: [],
+      };
+      compras.set(row.id_compra, compra);
+    }
+
+    if (
+      row.id_item_compra !== null &&
+      row.item_id !== null &&
+      row.item_tipo !== null &&
+      row.item_nome !== null &&
+      row.item_quantidade !== null &&
+      row.item_valor !== null
+    ) {
+      compra.itens.push({
+        itemId: row.item_id,
+        tipo: row.item_tipo,
+        nome: row.item_nome,
+        quantidade: row.item_quantidade,
+        precoUnitario: row.item_valor,
+      });
+    }
+  }
+
+  return [...compras.values()];
 }
 
 export async function buscarTodasCompras(): Promise<Compra[]> {
