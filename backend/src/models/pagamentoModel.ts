@@ -76,3 +76,41 @@ export async function buscarPagamentoPorId(
   );
   return rows[0] ?? null;
 }
+
+export type FormaPagamento =
+  | "dinheiro"
+  | "cartao de credito"
+  | "cartao de debito"
+  | "pix"
+  | "boleto";
+
+export type StatusPagamento = "pago" | "cancelado" | "pendente";
+
+export interface PagamentoInput {
+  tipo: TipoPagamento;
+  fk_id: number; // id_compra (avulso) ou id_contrato (assinatura)
+  valor: number;
+  dataPagamento: string | null;
+  formaPagamento: FormaPagamento | null;
+  status: StatusPagamento;
+}
+
+export async function criarPagamento(input: PagamentoInput): Promise<Pagamento | null> {
+  const { tipo, fk_id, valor, dataPagamento, formaPagamento, status } = input;
+
+  if (tipo === "avulso") {
+    const [result]: any = await pool.execute(
+      `INSERT INTO Pagamento_avulso (fk_Compra_id_compra, valor, data_pagamento, forma_pagamento, status)
+       VALUES (?, ?, ?, ?, ?)`,
+      [fk_id, valor, dataPagamento || null, formaPagamento || null, status]
+    );
+    return buscarPagamentoPorId("avulso", result.insertId);
+  } else {
+    const [result]: any = await pool.execute(
+      `INSERT INTO Pagamento_contrato (fk_Contrato_id_contrato, valor, data_pagamento, forma_pagamento, status)
+       VALUES (?, ?, ?, ?, ?)`,
+      [fk_id, valor, dataPagamento || null, formaPagamento || null, status]
+    );
+    return buscarPagamentoPorId("assinatura", result.insertId);
+  }
+}
