@@ -145,3 +145,35 @@ Para testar:
 2. Inicie a API com `npm run dev`.
 3. Use o Insomnia para enviar `GET`, `POST`, `PUT` e `DELETE` para `http://localhost:3001/api/compras`.
 4. Confirme as respostas e confira `Compra`, `Item_compra` e o estoque de `Produto` no banco.
+
+
+## Pagamentos
+
+### Consultar pagamentos (RF024)
+
+Envie `GET /api/pagamentos`, sem corpo. A resposta é `200 OK` com um array que junta os pagamentos avulsos (tabela `Pagamento_avulso`, ligados a uma compra) e os de assinatura (tabela `Pagamento_contrato`, ligados a um contrato). Sem pagamentos, o resultado é `[]`. Para listar só um tipo, use `?tipo=avulso` ou `?tipo=assinatura`; outro valor retorna `400`.
+
+```json
+{
+  "id_pagamento": 1,
+  "tipo": "avulso",
+  "valor": "250.00",
+  "forma_pagamento": "pix",
+  "status": "pago",
+  "data_pagamento": "2026-11-10",
+  "id_compra": 1,
+  "id_contrato": null,
+  "cpf": "52998224725",
+  "nome": "Maria Silva"
+}
+```
+
+`valor` vem como texto decimal. Pagamentos avulsos de compras sem cliente têm `cpf` e `nome` nulos.
+
+### Consultar um pagamento
+
+Envie `GET /api/pagamentos/:tipo/:id_pagamento`, por exemplo `GET /api/pagamentos/avulso/1`. O tipo é obrigatório porque cada tabela tem a sua própria numeração, então pode existir o pagamento avulso 1 e o de assinatura 1.
+
+- `200 OK`: o pagamento, no mesmo formato da listagem.
+- `400 Bad Request`: tipo diferente de `avulso`/`assinatura` ou ID inválido.
+- `404 Not Found`: `{ "error": "Nenhum resultado encontrado!" }`.
