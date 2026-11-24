@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import {
+  atualizarPagamento,
   buscarPagamentoPorId,
   buscarTodosPagamentos,
   criarPagamento,
@@ -106,6 +107,60 @@ export async function cadastrarPagamento(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("Erro ao cadastrar pagamento:", error);
+    return res.status(500).json({ message: "Erro interno do servidor." });
+  }
+}
+
+// [RF] Atualizar pagamento
+export async function editarPagamento(req: Request, res: Response) {
+  const { tipo } = req.params;
+  const idPagamento = Number(req.params.id_pagamento);
+
+  if (!tipoValido(tipo)) {
+    return res.status(400).json({ error: "Tipo inválido! Use 'avulso' ou 'assinatura'." });
+  }
+
+  if (!Number.isSafeInteger(idPagamento) || idPagamento <= 0) {
+    return res.status(400).json({ error: "ID do pagamento inválido." });
+  }
+
+  const { valor, dataPagamento, formaPagamento, status } = req.body;
+
+  if (valor === undefined || !status) {
+    return res.status(400).json({ error: "Preencha todos os campos obrigatórios!" });
+  }
+
+  if (typeof valor !== "number" || valor <= 0) {
+    return res.status(400).json({ error: "Valor inválido!" });
+  }
+
+  if (formaPagamento && !FORMAS_VALIDAS.includes(formaPagamento)) {
+    return res.status(400).json({ error: `Forma de pagamento inválida! Use: ${FORMAS_VALIDAS.join(", ")}.` });
+  }
+
+  if (!STATUS_VALIDOS.includes(status)) {
+    return res.status(400).json({ error: `Status inválido! Use: ${STATUS_VALIDOS.join(", ")}.` });
+  }
+
+  try {
+    const existente = await buscarPagamentoPorId(tipo, idPagamento);
+    if (!existente) {
+      return res.status(404).json({ error: "Nenhum resultado encontrado!" });
+    }
+
+    const pagamento = await atualizarPagamento(tipo, idPagamento, {
+      valor,
+      dataPagamento: dataPagamento || null,
+      formaPagamento: formaPagamento || null,
+      status,
+    });
+
+    return res.status(200).json({
+      message: "Operação realizada com sucesso!",
+      pagamento,
+    });
+  } catch (error) {
+    console.error("Erro ao atualizar pagamento:", error);
     return res.status(500).json({ message: "Erro interno do servidor." });
   }
 }

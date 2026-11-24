@@ -114,3 +114,29 @@ export async function criarPagamento(input: PagamentoInput): Promise<Pagamento |
     return buscarPagamentoPorId("assinatura", result.insertId);
   }
 }
+
+export async function atualizarPagamento(
+  tipo: TipoPagamento,
+  idPagamento: number,
+  input: Omit<PagamentoInput, "tipo" | "fk_id">
+): Promise<Pagamento | null> {
+  const { valor, dataPagamento, formaPagamento, status } = input;
+
+  if (tipo === "avulso") {
+    await pool.execute(
+      `UPDATE Pagamento_avulso
+          SET valor = ?, data_pagamento = ?, forma_pagamento = ?, status = ?
+        WHERE id_pagamento = ?`,
+      [valor, dataPagamento || null, formaPagamento || null, status, idPagamento]
+    );
+  } else {
+    await pool.execute(
+      `UPDATE Pagamento_contrato
+          SET valor = ?, data_pagamento = ?, forma_pagamento = ?, status = ?
+        WHERE id_pagamento = ?`,
+      [valor, dataPagamento || null, formaPagamento || null, status, idPagamento]
+    );
+  }
+
+  return buscarPagamentoPorId(tipo, idPagamento);
+}
