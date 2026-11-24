@@ -5,16 +5,15 @@ import Clientes from './pages/clientes/Clientes.tsx'
 import Produtos from './pages/produtos/Produtos.tsx'
 import Compras from './pages/compras/Compras.tsx'
 import Pagamentos from './pages/pagamentos/Pagamentos.tsx'
+import Servicos from './pages/servicos/Servicos.tsx'
 import type { Tela } from './types/navegacao.ts'
 
 export default function App() {
-  // Estado que decide qual tela aparece
-const [tela,setTela] = useState<Tela>('dashboard')
+  const [tela,setTela] = useState<Tela>('dashboard')
 
   const irPara = (proxima: Tela) => setTela(proxima)
   const voltar = () => setTela('dashboard')
 
-  // NOVO MÓDULO: adicione um case abaixo + o import da página
   switch (tela) {
     case 'clientes':
       return <Clientes onVoltar={voltar} />
@@ -24,6 +23,8 @@ const [tela,setTela] = useState<Tela>('dashboard')
       return <Compras onVoltar={voltar} />
     case 'pagamento':
       return <Pagamentos onVoltar={voltar} />
+    case 'servicos':
+      return <Servicos onVoltar={voltar} />
     case 'dashboard':
     default:
       return <Dashboard onNavegar={irPara} />

@@ -1,3 +1,3 @@
 // Tipos de navegação compartilhados.
 // NOVO MÓDULO: acrescente aqui, ex.: | 'obitos'
-export type Tela = 'dashboard' | 'clientes' | 'produtos' | 'compra' | 'pagamento'
+export type Tela = 'dashboard' | 'clientes' | 'produtos' | 'compra' | 'pagamento' | 'servicos'
