@@ -5,6 +5,7 @@ import clienteRoutes from "./routes/clienteRoutes";
 import produtoRoutes from "./routes/produtoRoutes";
 import compraRoutes from "./routes/compraRoutes";
 import pagamentoRoutes from "./routes/pagamentoRoutes";
+import servicoRoutes from "./routes/servicoRoutes";
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.use("/api", clienteRoutes);
 app.use("/api/produtos", produtoRoutes);
 app.use("/api/compras", compraRoutes);
 app.use("/api/pagamentos", pagamentoRoutes);
+app.use("/api/servicos", servicoRoutes);
 
 const PORT = process.env.PORT || 3001;
 
