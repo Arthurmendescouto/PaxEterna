@@ -1,4 +1,4 @@
-import { RowDataPacket } from "mysql2";
+import { ResultSetHeader, RowDataPacket } from "mysql2";
 import { pool } from "../config/db";
 
 // avulso = Pagamento_avulso (venda/compra); assinatura = Pagamento_contrato
@@ -171,4 +171,16 @@ export async function atualizarPagamento(
   }
 
   return buscarPagamentoPorId(tipo, idPagamento);
+}
+
+export async function removerPagamento(
+  tipo: TipoPagamento,
+  idPagamento: number
+): Promise<boolean> {
+  const tabela = tipo === "avulso" ? "Pagamento_avulso" : "Pagamento_contrato";
+  const [result] = await pool.execute<ResultSetHeader>(
+    `DELETE FROM ${tabela} WHERE id_pagamento = ?`,
+    [idPagamento]
+  );
+  return result.affectedRows > 0;
 }

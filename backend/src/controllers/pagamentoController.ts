@@ -5,6 +5,7 @@ import {
   buscarTodosPagamentos,
   buscarVinculosPagamento as buscarVinculosNoBanco,
   criarPagamento,
+  removerPagamento,
   type FormaPagamento,
   type StatusPagamento,
   type TipoPagamento,
@@ -24,6 +25,32 @@ const FORMAS_VALIDAS: FormaPagamento[] = [
 ];
 
 const STATUS_VALIDOS: StatusPagamento[] = ["pago", "cancelado", "pendente"];
+
+// [RF023] Exclui o lançamento após a confirmação na interface.
+export async function excluirPagamento(req: Request, res: Response) {
+  const { tipo } = req.params;
+  const idPagamento = Number(req.params.id_pagamento);
+
+  if (!tipoValido(tipo)) {
+    return res
+      .status(400)
+      .json({ error: "Tipo de pagamento inválido! Use avulso ou assinatura." });
+  }
+  if (!Number.isSafeInteger(idPagamento) || idPagamento <= 0) {
+    return res.status(400).json({ error: "ID do pagamento inválido." });
+  }
+
+  try {
+    const removido = await removerPagamento(tipo, idPagamento);
+    if (!removido) {
+      return res.status(404).json({ error: "Nenhum resultado encontrado!" });
+    }
+    return res.status(200).json({ message: "Operação realizada com sucesso!" });
+  } catch (error) {
+    console.error("Erro ao remover pagamento:", error);
+    return res.status(500).json({ message: "Erro interno do servidor." });
+  }
+}
 
 // [RF024] Lista os pagamentos. Aceita ?tipo=avulso ou ?tipo=assinatura.
 export async function buscarPagamentos(req: Request, res: Response) {
