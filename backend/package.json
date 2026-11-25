@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
+    "test:estorno": "npm run build && node test/estornoPagamento.test.cjs",
     "start": "node dist/server.js",
     "db:migrate": "knex --knexfile knexfile.cjs migrate:latest",
     "db:rollback": "knex --knexfile knexfile.cjs migrate:rollback"
