@@ -17,6 +17,38 @@ export interface Pagamento extends RowDataPacket {
   nome: string | null;
 }
 
+export interface VinculoPagamento extends RowDataPacket {
+  id: number;
+  valor: string;
+  data_inicio: string;
+  data_termino: string | null;
+}
+
+export async function buscarVinculosPagamento(
+  tipo: TipoPagamento,
+  cpf: string
+): Promise<VinculoPagamento[]> {
+  const consulta =
+    tipo === "avulso"
+      ? `SELECT id_compra AS id,
+                valor_total AS valor,
+                DATE_FORMAT(data_compra, '%Y-%m-%d') AS data_inicio,
+                NULL AS data_termino
+           FROM Compra
+          WHERE fk_Cliente_cpf = ?
+          ORDER BY id_compra DESC`
+      : `SELECT id_contrato AS id,
+                valor_contrato AS valor,
+                DATE_FORMAT(data_inicio, '%Y-%m-%d') AS data_inicio,
+                DATE_FORMAT(data_termino, '%Y-%m-%d') AS data_termino
+           FROM Contrato
+          WHERE fk_Cliente_cpf = ? AND status = 'ativo'
+          ORDER BY id_contrato DESC`;
+
+  const [rows] = await pool.query<VinculoPagamento[]>(consulta, [cpf]);
+  return rows;
+}
+
 // Junta as duas tabelas de pagamento numa única listagem.
 // O CPF vem da compra (avulso) ou do contrato (assinatura); compra sem
 // cliente fica com cpf e nome nulos.

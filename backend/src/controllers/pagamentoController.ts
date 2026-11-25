@@ -3,11 +3,13 @@ import {
   atualizarPagamento,
   buscarPagamentoPorId,
   buscarTodosPagamentos,
+  buscarVinculosPagamento as buscarVinculosNoBanco,
   criarPagamento,
   type FormaPagamento,
   type StatusPagamento,
   type TipoPagamento,
 } from "../models/pagamentoModel";
+import { isValidCpf } from "../utils/validators";
 
 function tipoValido(valor: unknown): valor is TipoPagamento {
   return valor === "avulso" || valor === "assinatura";
@@ -37,6 +39,29 @@ export async function buscarPagamentos(req: Request, res: Response) {
     return res.status(200).json(pagamentos);
   } catch (error) {
     console.error("Erro ao buscar pagamentos:", error);
+    return res.status(500).json({ message: "Erro interno do servidor." });
+  }
+}
+
+export async function buscarVinculosPagamento(req: Request, res: Response) {
+  const { tipo, cpf } = req.query;
+  const cpfNormalizado =
+    typeof cpf === "string" ? cpf.replace(/\D/g, "") : "";
+
+  if (!tipoValido(tipo)) {
+    return res
+      .status(400)
+      .json({ error: "Tipo de pagamento inválido! Use avulso ou assinatura." });
+  }
+  if (!isValidCpf(cpfNormalizado)) {
+    return res.status(400).json({ error: "CPF inválido." });
+  }
+
+  try {
+    const vinculos = await buscarVinculosNoBanco(tipo, cpfNormalizado);
+    return res.status(200).json(vinculos);
+  } catch (error) {
+    console.error("Erro ao buscar vínculos de pagamento:", error);
     return res.status(500).json({ message: "Erro interno do servidor." });
   }
 }
