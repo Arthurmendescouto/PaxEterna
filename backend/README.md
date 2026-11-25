@@ -177,3 +177,26 @@ Envie `GET /api/pagamentos/:tipo/:id_pagamento`, por exemplo `GET /api/pagamento
 - `200 OK`: o pagamento, no mesmo formato da listagem.
 - `400 Bad Request`: tipo diferente de `avulso`/`assinatura` ou ID inválido.
 - `404 Not Found`: `{ "error": "Nenhum resultado encontrado!" }`.
+
+### Consultar compras e contratos disponíveis
+
+Antes de cadastrar um pagamento, consulte os vínculos do cliente com `GET /api/pagamentos/vinculos?tipo=avulso&cpf=52998224725` ou troque o tipo por `assinatura`. A resposta é um array com `id`, `valor`, `data_inicio` e `data_termino`; para compras, `data_termino` é `null`. A busca de contratos retorna apenas contratos ativos. CPF ou tipo inválido retorna `400`.
+
+### Cadastrar e atualizar pagamento
+
+Envie `POST /api/pagamentos` com um `fk_id` correspondente a uma compra (`avulso`) ou contrato (`assinatura`):
+
+```json
+{
+  "tipo": "avulso",
+  "fk_id": 1,
+  "valor": 150,
+  "dataPagamento": "2026-11-10",
+  "formaPagamento": "pix",
+  "status": "pendente"
+}
+```
+
+O campo `dataPagamento` e `formaPagamento` podem ser `null`; os status aceitos são `pago`, `pendente` e `cancelado`. Em sucesso, o cadastro retorna `201 Created` e a atualização retorna `200 OK`, ambas com a propriedade `pagamento`.
+
+Para atualizar, use `PUT /api/pagamentos/:tipo/:id_pagamento` com `valor`, `dataPagamento`, `formaPagamento` e `status`. O estorno não remove o registro: atualize o status para `cancelado`, preservando o histórico.

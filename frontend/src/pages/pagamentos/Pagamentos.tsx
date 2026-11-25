@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import AddIcon from '@mui/icons-material/Add'
@@ -9,14 +9,37 @@ import PaymentsIcon from '@mui/icons-material/Payments'
 import SearchIcon from '@mui/icons-material/Search'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 
+import {
+  atualizarPagamento,
+  cadastrarPagamento,
+  listarPagamentos,
+  listarVinculosPagamento,
+} from '../../services/pagamentoService'
 import { buscarCliente } from '../../services/clienteService'
-import { formatarCpf, formatarValor, somenteDigitos } from '../../utils/formatadores'
+import type {
+  FormaPagamento,
+  Pagamento,
+  StatusPagamento,
+  TipoPagamento,
+  VinculoPagamento,
+} from '../../types/pagamento'
+import {
+  formatarCpf,
+  formatarData,
+  formatarValor,
+  somenteDigitos,
+} from '../../utils/formatadores'
 
 type PagamentosProps = {
   onVoltar?: () => void
 }
 
 const PAGAMENTOS_POR_PAGINA = 10
+const STATUS_PAGAMENTO = [
+  { valor: 'pendente', rotulo: 'Pendente' },
+  { valor: 'pago', rotulo: 'Pago' },
+  { valor: 'cancelado', rotulo: 'Cancelado' },
+] as const
 
 const FORMAS_PAGAMENTO = [
   { valor: 'dinheiro', rotulo: 'Dinheiro' },
@@ -26,60 +49,29 @@ const FORMAS_PAGAMENTO = [
   { valor: 'boleto', rotulo: 'Boleto' },
 ] as const
 
-type FormaPagamento = (typeof FORMAS_PAGAMENTO)[number]['valor']
-type TipoPagamento = 'avulso' | 'assinatura'
-
-interface Pagamento {
-  id: number
-  cpf: string
-  nome: string
-  valor: number
-  formaPagamento: FormaPagamento
-  tipo: TipoPagamento
+function dataAtualLocal() {
+  const data = new Date()
+  const ano = data.getFullYear()
+  const mes = String(data.getMonth() + 1).padStart(2, '0')
+  const dia = String(data.getDate()).padStart(2, '0')
+  return `${ano}-${mes}-${dia}`
 }
 
-const PAGAMENTOS_DEMONSTRACAO: Pagamento[] = [
-  {
-    id: 1,
-    cpf: '00000000000',
-    nome: 'Cliente Demonstração 1',
-    valor: 250,
-    formaPagamento: 'pix',
-    tipo: 'avulso',
-  },
-  {
-    id: 2,
-    cpf: '11111111111',
-    nome: 'Cliente Demonstração 2',
-    valor: 489.9,
-    formaPagamento: 'cartao de credito',
-    tipo: 'assinatura',
-  },
-  {
-    id: 3,
-    cpf: '22222222222',
-    nome: 'Cliente Demonstração 3',
-    valor: 125,
-    formaPagamento: 'dinheiro',
-    tipo: 'avulso',
-  },
-  {
-    id: 4,
-    cpf: '33333333333',
-    nome: 'Cliente Demonstração 4',
-    valor: 89.5,
-    formaPagamento: 'boleto',
-    tipo: 'assinatura',
-  },
-]
+function mesmaChave(a: Pagamento, b: Pagamento) {
+  return a.id === b.id && a.tipo === b.tipo
+}
 
 export default function Pagamentos({ onVoltar }: PagamentosProps) {
-  const [pagamentos, setPagamentos] = useState<Pagamento[]>(PAGAMENTOS_DEMONSTRACAO)
+  const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(1)
   const [pagamentoSelecionado, setPagamentoSelecionado] = useState<Pagamento | null>(null)
   const [cadastroAberto, setCadastroAberto] = useState(false)
   const [pagamentoEmEdicao, setPagamentoEmEdicao] = useState<Pagamento | null>(null)
+  const [salvando, setSalvando] = useState(false)
+  const [estornando, setEstornando] = useState(false)
   const [mensagemSucesso, setMensagemSucesso] = useState('')
   const [cpf, setCpf] = useState('')
   const [cpfValidado, setCpfValidado] = useState('')
@@ -89,12 +81,44 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
   const [valor, setValor] = useState('')
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento | ''>('')
   const [tipoPagamento, setTipoPagamento] = useState<TipoPagamento | ''>('')
+  const [statusPagamento, setStatusPagamento] = useState<StatusPagamento>('pendente')
+  const [dataPagamento, setDataPagamento] = useState('')
+  const [vinculos, setVinculos] = useState<VinculoPagamento[]>([])
+  const [vinculoId, setVinculoId] = useState('')
+  const [carregandoVinculos, setCarregandoVinculos] = useState(false)
   const [erroFormulario, setErroFormulario] = useState('')
   const requisicaoCpf = useRef(0)
-  const [proximoId, setProximoId] = useState(
-    () => Math.max(0, ...PAGAMENTOS_DEMONSTRACAO.map((pagamento) => pagamento.id)) + 1
-  )
   const [pagamentoParaEstornar, setPagamentoParaEstornar] = useState<Pagamento | null>(null)
+
+  useEffect(() => {
+    listarPagamentos()
+      .then(setPagamentos)
+      .catch((erroRequisicao: Error) => setErro(erroRequisicao.message))
+      .finally(() => setCarregando(false))
+  }, [])
+
+  useEffect(() => {
+    if (!cadastroAberto || pagamentoEmEdicao || !tipoPagamento || !cpfValidado) {
+      return
+    }
+
+    let cancelada = false
+
+    listarVinculosPagamento(tipoPagamento, cpfValidado)
+      .then((resultado) => {
+        if (!cancelada) setVinculos(resultado)
+      })
+      .catch((erroRequisicao: Error) => {
+        if (!cancelada) setErroFormulario(erroRequisicao.message)
+      })
+      .finally(() => {
+        if (!cancelada) setCarregandoVinculos(false)
+      })
+
+    return () => {
+      cancelada = true
+    }
+  }, [cadastroAberto, pagamentoEmEdicao, tipoPagamento, cpfValidado])
 
   const pagamentosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -105,10 +129,10 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
       const termoDigitos = somenteDigitos(termo)
       return (
         String(pagamento.id).includes(termo) ||
-        pagamento.nome.toLowerCase().includes(termo) ||
-        (termoDigitos !== '' && pagamento.cpf.includes(termoDigitos)) ||
+        (pagamento.nome?.toLowerCase().includes(termo) ?? false) ||
+        (termoDigitos !== '' && (pagamento.cpf?.includes(termoDigitos) ?? false)) ||
         pagamento.tipo.includes(termo) ||
-        pagamento.formaPagamento.includes(termo) ||
+        (pagamento.formaPagamento?.includes(termo) ?? false) ||
         (forma?.rotulo.toLowerCase().includes(termo) ?? false)
       )
     })
@@ -132,24 +156,34 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
     setValor('')
     setFormaPagamento('')
     setTipoPagamento('')
+    setStatusPagamento('pendente')
+    setDataPagamento(dataAtualLocal())
+    setVinculos([])
+    setVinculoId('')
     setErroFormulario('')
     setMensagemSucesso('')
+    setErro('')
     setCadastroAberto(true)
   }
 
   const abrirEdicao = (pagamento: Pagamento) => {
     requisicaoCpf.current += 1
     setPagamentoEmEdicao(pagamento)
-    setCpf(formatarCpf(pagamento.cpf))
-    setCpfValidado(pagamento.cpf)
+    setCpf(formatarCpf(pagamento.cpf ?? ''))
+    setCpfValidado(pagamento.cpf ?? '')
     setConsultandoCliente(false)
     setErroCpf('')
-    setNome(pagamento.nome)
+    setNome(pagamento.nome ?? '')
     setValor(String(pagamento.valor))
-    setFormaPagamento(pagamento.formaPagamento)
+    setFormaPagamento(pagamento.formaPagamento ?? '')
     setTipoPagamento(pagamento.tipo)
+    setStatusPagamento(pagamento.status)
+    setDataPagamento(pagamento.dataPagamento ?? '')
+    setVinculos([])
+    setVinculoId('')
     setErroFormulario('')
     setMensagemSucesso('')
+    setErro('')
     setCadastroAberto(true)
   }
 
@@ -158,6 +192,8 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
     setConsultandoCliente(false)
     setCadastroAberto(false)
     setPagamentoEmEdicao(null)
+    setVinculos([])
+    setVinculoId('')
   }
 
   const consultarClientePorCpf = async () => {
@@ -166,6 +202,9 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
       setCpfValidado('')
       setNome('')
       setErroCpf('Informe um CPF válido com 11 dígitos.')
+      setVinculos([])
+      setVinculoId('')
+      setCarregandoVinculos(false)
       return
     }
 
@@ -182,6 +221,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
       setCpfValidado(somenteDigitos(cliente.cpf))
       setNome(cliente.nome)
       setErroCpf('')
+      if (tipoPagamento) setCarregandoVinculos(true)
     } catch (erroRequisicao) {
       if (requisicaoAtual !== requisicaoCpf.current) return
 
@@ -195,18 +235,19 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
     }
   }
 
-  const salvarPagamento = (event: FormEvent<HTMLFormElement>) => {
+  const salvarPagamento = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const valorNumerico = Number(valor)
 
-    if (!cpfValidado || cpfValidado !== somenteDigitos(cpf)) {
+    if (
+      !pagamentoEmEdicao &&
+      (!cpfValidado || cpfValidado !== somenteDigitos(cpf))
+    ) {
       setErroFormulario('Consulte um CPF existente antes de salvar o pagamento.')
       return
     }
 
     if (
-      !nome.trim() ||
-      !formaPagamento ||
       !tipoPagamento ||
       !valor ||
       !Number.isFinite(valorNumerico) ||
@@ -216,43 +257,95 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
       return
     }
 
-    const dadosPagamento: Pagamento = {
-      id: pagamentoEmEdicao?.id ?? proximoId,
-      cpf: cpfValidado,
-      nome: nome.trim(),
-      valor: valorNumerico,
-      formaPagamento,
-      tipo: tipoPagamento,
+    if (!pagamentoEmEdicao && (!vinculoId || !Number.isSafeInteger(Number(vinculoId)))) {
+      setErroFormulario('Selecione uma compra ou contrato para vincular ao pagamento.')
+      return
     }
 
-    if (pagamentoEmEdicao) {
-      setPagamentos((atuais) =>
-        atuais.map((pagamento) =>
-          pagamento.id === pagamentoEmEdicao.id ? dadosPagamento : pagamento
+    setSalvando(true)
+    setErroFormulario('')
+    try {
+      const dadosPagamento = {
+        valor: valorNumerico,
+        dataPagamento: dataPagamento || null,
+        formaPagamento: formaPagamento || null,
+        status: statusPagamento,
+      }
+
+      if (pagamentoEmEdicao) {
+        const pagamentoAtualizado = await atualizarPagamento(
+          pagamentoEmEdicao.tipo,
+          pagamentoEmEdicao.id,
+          dadosPagamento
         )
-      )
-    } else {
-      setPagamentos((atuais) => [...atuais, dadosPagamento])
-      setProximoId((idAtual) => idAtual + 1)
-    }
+        setPagamentos((atuais) =>
+          atuais.map((pagamento) =>
+            mesmaChave(pagamento, pagamentoEmEdicao)
+              ? pagamentoAtualizado
+              : pagamento
+          )
+        )
+        setPagamentoSelecionado((atual) =>
+          atual && mesmaChave(atual, pagamentoAtualizado) ? pagamentoAtualizado : atual
+        )
+        setMensagemSucesso('Pagamento atualizado com sucesso!')
+      } else {
+        const pagamentoCriado = await cadastrarPagamento({
+          ...dadosPagamento,
+          tipo: tipoPagamento,
+          fk_id: Number(vinculoId),
+        })
+        setPagamentos((atuais) => [pagamentoCriado, ...atuais])
+        setMensagemSucesso('Pagamento cadastrado com sucesso!')
+      }
 
-    setCadastroAberto(false)
-    setPagamentoEmEdicao(null)
-    setMensagemSucesso(
-      pagamentoEmEdicao
-        ? 'Pagamento atualizado com sucesso!'
-        : 'Pagamento cadastrado com sucesso!'
-    )
+      fecharCadastro()
+    } catch (erroRequisicao) {
+      setErroFormulario(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível salvar o pagamento.'
+      )
+    } finally {
+      setSalvando(false)
+    }
   }
 
-  const confirmarEstorno = () => {
+  const confirmarEstorno = async () => {
     if (!pagamentoParaEstornar) return
 
-    const idEstornado = pagamentoParaEstornar.id
-    setPagamentos((atuais) => atuais.filter((pagamento) => pagamento.id !== idEstornado))
-    setPagamentoSelecionado((atual) => (atual?.id === idEstornado ? null : atual))
-    setPagamentoParaEstornar(null)
-    setMensagemSucesso(`Pagamento #${idEstornado} removido da lista demonstrativa.`)
+    setEstornando(true)
+    setErro('')
+    try {
+      const pagamentoCancelado = await atualizarPagamento(
+        pagamentoParaEstornar.tipo,
+        pagamentoParaEstornar.id,
+        {
+          valor: pagamentoParaEstornar.valor,
+          dataPagamento: pagamentoParaEstornar.dataPagamento,
+          formaPagamento: pagamentoParaEstornar.formaPagamento,
+          status: 'cancelado',
+        }
+      )
+      setPagamentos((atuais) =>
+        atuais.map((pagamento) =>
+          mesmaChave(pagamento, pagamentoCancelado) ? pagamentoCancelado : pagamento
+        )
+      )
+      setPagamentoSelecionado((atual) =>
+        atual && mesmaChave(atual, pagamentoCancelado) ? pagamentoCancelado : atual
+      )
+      setMensagemSucesso(`Pagamento #${pagamentoCancelado.id} estornado com sucesso.`)
+      setPagamentoParaEstornar(null)
+    } catch (erroRequisicao) {
+      setErro(
+        erroRequisicao instanceof Error
+          ? erroRequisicao.message
+          : 'Não foi possível estornar o pagamento.'
+      )
+    } finally {
+      setEstornando(false)
+    }
   }
 
   return (
@@ -310,8 +403,8 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
         </div>
 
         <div className="mb-4 rounded-md bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          A lista inicia com registros fictícios para demonstração. O CPF é consultado na base de
-          clientes; cadastros, atualizações e estornos ficam apenas nesta tela até a integração com a API.
+          Pagamentos carregados da API. Novos registros devem estar vinculados a uma compra ou
+          contrato ativo do cliente.
         </div>
 
         {mensagemSucesso && (
@@ -331,13 +424,21 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
           </div>
         )}
 
+        {erro && (
+          <div className="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            {erro}
+          </div>
+        )}
+
         <p className="mb-3 text-sm text-gray-600">
-          Exibindo <strong>{pagamentosFiltrados.length}</strong> pagamento(s)
+          {carregando
+            ? 'Carregando pagamentos...'
+            : <>Exibindo <strong>{pagamentosFiltrados.length}</strong> pagamento(s)</>}
         </p>
 
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left text-sm">
+            <table className="w-full min-w-[800px] text-left text-sm">
               <thead className="bg-gray-50 text-gray-800">
                 <tr>
                   <th className="px-5 py-3 font-semibold">ID</th>
@@ -346,21 +447,27 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                   <th className="px-5 py-3 font-semibold">Tipo</th>
                   <th className="px-5 py-3 font-semibold">Forma de pagamento</th>
                   <th className="px-5 py-3 font-semibold">Valor</th>
+                  <th className="px-5 py-3 font-semibold">Status</th>
                   <th className="px-5 py-3 text-center font-semibold">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {pagamentosDaPagina.map((pagamento) => (
-                  <tr key={pagamento.id} className="transition hover:bg-gray-50">
+                  <tr key={`${pagamento.tipo}:${pagamento.id}`} className="transition hover:bg-gray-50">
                     <td className="px-5 py-4 font-medium text-gray-800">#{pagamento.id}</td>
-                    <td className="px-5 py-4 font-medium text-gray-800">{pagamento.nome}</td>
-                    <td className="px-5 py-4 text-gray-600">{formatarCpf(pagamento.cpf)}</td>
+                    <td className="px-5 py-4 font-medium text-gray-800">{pagamento.nome ?? '—'}</td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {pagamento.cpf ? formatarCpf(pagamento.cpf) : '—'}
+                    </td>
                     <td className="px-5 py-4 text-gray-600 capitalize">{pagamento.tipo}</td>
                     <td className="px-5 py-4 text-gray-600">
-                      {FORMAS_PAGAMENTO.find((forma) => forma.valor === pagamento.formaPagamento)?.rotulo}
+                      {FORMAS_PAGAMENTO.find((forma) => forma.valor === pagamento.formaPagamento)?.rotulo ?? '—'}
                     </td>
                     <td className="px-5 py-4 font-medium text-gray-800">
                       {formatarValor(pagamento.valor)}
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {STATUS_PAGAMENTO.find((status) => status.valor === pagamento.status)?.rotulo}
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex justify-center gap-1">
@@ -382,15 +489,17 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                       >
                         <EditIcon fontSize="small" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setPagamentoParaEstornar(pagamento)}
-                        title="Estornar pagamento"
-                        aria-label={`Estornar pagamento ${pagamento.id}`}
-                        className="cursor-pointer rounded-md px-3 py-1.5 text-red-500 transition hover:bg-red-50"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </button>
+                      {pagamento.status !== 'cancelado' && (
+                        <button
+                          type="button"
+                          onClick={() => setPagamentoParaEstornar(pagamento)}
+                          title="Estornar pagamento"
+                          aria-label={`Estornar pagamento ${pagamento.id}`}
+                          className="cursor-pointer rounded-md px-3 py-1.5 text-red-500 transition hover:bg-red-50"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </button>
+                      )}
                       </div>
                     </td>
                   </tr>
@@ -401,7 +510,9 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
 
           {pagamentosFiltrados.length === 0 ? (
             <p className="px-6 py-12 text-center text-sm font-medium text-gray-700">
-              {pagamentos.length === 0
+              {carregando
+                ? 'Carregando pagamentos...'
+                : pagamentos.length === 0
                 ? 'Nenhum pagamento cadastrado.'
                 : 'Nenhum resultado encontrado!'}
             </p>
@@ -468,14 +579,14 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                 <input
                   id="pagamento-id"
                   type="text"
-                  value={pagamentoEmEdicao?.id ?? proximoId}
+                  value={pagamentoEmEdicao?.id ?? 'Gerado pelo sistema'}
                   readOnly
                   className="w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600"
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   {pagamentoEmEdicao
                     ? 'O identificador do pagamento não pode ser alterado.'
-                    : 'Gerado automaticamente pelo sistema.'}
+                    : 'O identificador será gerado pela API.'}
                 </p>
               </div>
 
@@ -496,27 +607,34 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                       setErroCpf('')
                       setNome('')
                       setErroFormulario('')
+                      setVinculos([])
+                      setVinculoId('')
+                      setCarregandoVinculos(false)
                     }}
+                    readOnly={Boolean(pagamentoEmEdicao)}
                     inputMode="numeric"
                     autoComplete="off"
                     maxLength={14}
-                    required
+                    required={!pagamentoEmEdicao}
                     aria-describedby="pagamento-cpf-ajuda"
                     className="min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                     placeholder="000.000.000-00"
                   />
-                  <button
-                    type="button"
-                    onClick={consultarClientePorCpf}
-                    disabled={consultandoCliente || somenteDigitos(cpf).length !== 11}
-                    className="cursor-pointer rounded-md border border-blue-700 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {consultandoCliente ? 'Consultando...' : 'Consultar CPF'}
-                  </button>
+                  {!pagamentoEmEdicao && (
+                    <button
+                      type="button"
+                      onClick={consultarClientePorCpf}
+                      disabled={consultandoCliente || somenteDigitos(cpf).length !== 11}
+                      className="cursor-pointer rounded-md border border-blue-700 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {consultandoCliente ? 'Consultando...' : 'Consultar CPF'}
+                    </button>
+                  )}
                 </div>
                 <p id="pagamento-cpf-ajuda" className="mt-1 text-xs text-gray-500">
-                  O nome será preenchido após confirmar um CPF cadastrado. Em uma edição, o CPF atual
-                  já está validado; consulte novamente se ele for alterado.
+                  {pagamentoEmEdicao
+                    ? 'O pagamento permanece vinculado ao cliente e registro originais.'
+                    : 'O nome será preenchido após confirmar um CPF cadastrado.'}
                 </p>
                 {erroCpf && (
                   <p className="mt-1 text-sm text-red-700" role="alert">
@@ -558,7 +676,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
 
               <div>
                 <label htmlFor="pagamento-forma" className="mb-1 block text-sm font-medium text-gray-700">
-                  Forma de pagamento <span className="text-red-600">*</span>
+                  Forma de pagamento
                 </label>
                 <select
                   id="pagamento-forma"
@@ -569,7 +687,6 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                     )
                     setFormaPagamento(formaSelecionada?.valor ?? '')
                   }}
-                  required
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">Selecione a forma de pagamento</option>
@@ -590,14 +707,122 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                   value={tipoPagamento}
                   onChange={(event) => {
                     const tipo = event.target.value
-                    setTipoPagamento(tipo === 'avulso' || tipo === 'assinatura' ? tipo : '')
+                    const tipoValido =
+                      tipo === 'avulso' || tipo === 'assinatura' ? tipo : ''
+                    setTipoPagamento(tipoValido)
+                    setVinculoId('')
+                    setVinculos([])
+                    setCarregandoVinculos(Boolean(tipoValido && cpfValidado))
+                    setErroFormulario('')
                   }}
+                  disabled={Boolean(pagamentoEmEdicao)}
                   required
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">Selecione o tipo de pagamento</option>
                   <option value="avulso">Pagamento avulso</option>
                   <option value="assinatura">Pagamento da assinatura</option>
+                </select>
+              </div>
+
+              {pagamentoEmEdicao ? (
+                <div>
+                  <span className="mb-1 block text-sm font-medium text-gray-700">Vínculo</span>
+                  <p className="rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600">
+                    {pagamentoEmEdicao.tipo === 'avulso' ? 'Compra' : 'Contrato'} #
+                    {pagamentoEmEdicao.idCompra ?? pagamentoEmEdicao.idContrato}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    O vínculo original não pode ser alterado.
+                  </p>
+                </div>
+              ) : tipoPagamento && cpfValidado ? (
+                <div>
+                  <label htmlFor="pagamento-vinculo" className="mb-1 block text-sm font-medium text-gray-700">
+                    {tipoPagamento === 'avulso' ? 'Compra' : 'Contrato ativo'}{' '}
+                    <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    id="pagamento-vinculo"
+                    value={vinculoId}
+                    onChange={(event) => {
+                      setVinculoId(event.target.value)
+                      const vinculoSelecionado = vinculos.find(
+                        (vinculo) => String(vinculo.id) === event.target.value
+                      )
+                      if (vinculoSelecionado) setValor(String(vinculoSelecionado.valor))
+                    }}
+                    disabled={carregandoVinculos || vinculos.length === 0}
+                    required
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+                  >
+                    <option value="">
+                      {carregandoVinculos
+                        ? 'Carregando vínculos...'
+                        : vinculos.length === 0
+                          ? 'Nenhum vínculo disponível'
+                          : 'Selecione uma opção'}
+                    </option>
+                    {vinculos.map((vinculo) => (
+                      <option key={vinculo.id} value={vinculo.id}>
+                        {tipoPagamento === 'avulso' ? 'Compra' : 'Contrato'} #{vinculo.id}
+                        {' · '}
+                        {formatarData(vinculo.dataInicio)}
+                        {vinculo.dataTermino
+                          ? ` a ${formatarData(vinculo.dataTermino)}`
+                          : ''}
+                        {' · '}
+                        {formatarValor(vinculo.valor)}
+                      </option>
+                    ))}
+                  </select>
+                  {!carregandoVinculos && vinculos.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Não há {tipoPagamento === 'avulso' ? 'compras' : 'contratos ativos'} para este CPF.
+                    </p>
+                  )}
+                  {vinculos.length > 0 && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      O valor é preenchido com o valor do vínculo e pode ser ajustado.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
+              <div>
+                <label htmlFor="pagamento-data" className="mb-1 block text-sm font-medium text-gray-700">
+                  Data do pagamento
+                </label>
+                <input
+                  id="pagamento-data"
+                  type="date"
+                  value={dataPagamento}
+                  onChange={(event) => setDataPagamento(event.target.value)}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="pagamento-status" className="mb-1 block text-sm font-medium text-gray-700">
+                  Status <span className="text-red-600">*</span>
+                </label>
+                <select
+                  id="pagamento-status"
+                  value={statusPagamento}
+                  onChange={(event) => {
+                    const status = event.target.value
+                    if (status === 'pago' || status === 'cancelado' || status === 'pendente') {
+                      setStatusPagamento(status)
+                    }
+                  }}
+                  required
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                >
+                  {STATUS_PAGAMENTO.map((status) => (
+                    <option key={status.valor} value={status.valor}>
+                      {status.rotulo}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -612,15 +837,21 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
               <button
                 type="button"
                 onClick={fecharCadastro}
+                disabled={salvando}
                 className="cursor-pointer rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+                disabled={salvando}
+                className="cursor-pointer rounded-md bg-[#2d5082] px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pagamentoEmEdicao ? 'Salvar alterações' : 'Cadastrar'}
+                {salvando
+                  ? 'Salvando...'
+                  : pagamentoEmEdicao
+                    ? 'Salvar alterações'
+                    : 'Cadastrar'}
               </button>
             </div>
           </form>
@@ -650,11 +881,13 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
             <dl className="space-y-4 px-6 py-6 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Nome</dt>
-                <dd className="font-medium text-gray-800">{pagamentoSelecionado.nome}</dd>
+                <dd className="font-medium text-gray-800">{pagamentoSelecionado.nome ?? '—'}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">CPF</dt>
-                <dd className="font-medium text-gray-800">{formatarCpf(pagamentoSelecionado.cpf)}</dd>
+                <dd className="font-medium text-gray-800">
+                  {pagamentoSelecionado.cpf ? formatarCpf(pagamentoSelecionado.cpf) : '—'}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Tipo</dt>
@@ -663,13 +896,34 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Vínculo</dt>
+                <dd className="font-medium text-gray-800">
+                  {pagamentoSelecionado.tipo === 'avulso' ? 'Compra' : 'Contrato'} #
+                  {pagamentoSelecionado.idCompra ?? pagamentoSelecionado.idContrato}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Valor</dt>
                 <dd className="font-medium text-gray-800">{formatarValor(pagamentoSelecionado.valor)}</dd>
               </div>
               <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Data</dt>
+                <dd className="font-medium text-gray-800">
+                  {pagamentoSelecionado.dataPagamento
+                    ? formatarData(pagamentoSelecionado.dataPagamento)
+                    : '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Forma de pagamento</dt>
                 <dd className="font-medium text-gray-800">
-                  {FORMAS_PAGAMENTO.find((forma) => forma.valor === pagamentoSelecionado.formaPagamento)?.rotulo}
+                  {FORMAS_PAGAMENTO.find((forma) => forma.valor === pagamentoSelecionado.formaPagamento)?.rotulo ?? '—'}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-gray-500">Status</dt>
+                <dd className="font-medium text-gray-800">
+                  {STATUS_PAGAMENTO.find((status) => status.valor === pagamentoSelecionado.status)?.rotulo}
                 </dd>
               </div>
             </dl>
@@ -713,15 +967,18 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
               </p>
               <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
                 <p className="text-sm font-semibold text-gray-900">
-                  Pagamento #{pagamentoParaEstornar.id} · {pagamentoParaEstornar.nome}
+                  Pagamento #{pagamentoParaEstornar.id} · {pagamentoParaEstornar.nome ?? 'Cliente não identificado'}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  {formatarCpf(pagamentoParaEstornar.cpf)} · {formatarValor(pagamentoParaEstornar.valor)}
+                  {pagamentoParaEstornar.cpf
+                    ? formatarCpf(pagamentoParaEstornar.cpf)
+                    : 'Sem CPF'}
+                  {' · '}
+                  {formatarValor(pagamentoParaEstornar.valor)}
                 </p>
               </div>
               <p className="mt-3 text-xs text-gray-500">
-                Como a API de pagamentos ainda não está integrada, a confirmação remove apenas o
-                registro desta lista demonstrativa.
+                O pagamento será mantido no histórico e seu status será atualizado para cancelado.
               </p>
             </div>
 
@@ -729,6 +986,7 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
               <button
                 type="button"
                 onClick={() => setPagamentoParaEstornar(null)}
+                disabled={estornando}
                 className="cursor-pointer rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
               >
                 Cancelar
@@ -736,10 +994,11 @@ export default function Pagamentos({ onVoltar }: PagamentosProps) {
               <button
                 type="button"
                 onClick={confirmarEstorno}
-                className="flex cursor-pointer items-center gap-2 rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                disabled={estornando}
+                className="flex cursor-pointer items-center gap-2 rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <DeleteIcon fontSize="small" />
-                Confirmar estorno
+                {estornando ? 'Estornando...' : 'Confirmar estorno'}
               </button>
             </div>
           </div>
